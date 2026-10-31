@@ -1,0 +1,155 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PageTurner Bookstore API",
+    "version": "1.0.0",
+    "description": "RESTful API documentation for PageTurner Bookstore application built with Next.js Route Handlers and MongoDB."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register new user account",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string", "example": "Jane Doe" },
+                  "email": { "type": "string", "example": "jane@example.com" },
+                  "password": { "type": "string", "example": "Secret123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered and JWT cookie set" },
+          "400": { "description": "Validation error" },
+          "409": { "description": "Email already exists" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user session",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "admin@bookstore.com" },
+                  "password": { "type": "string", "example": "Admin@123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successfully authenticated, sets HTTP-only cookie" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Get current authenticated user session",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Returns current user or null" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Log out and clear session cookie",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    },
+    "/api/books": {
+      "get": {
+        "summary": "List commercial books",
+        "tags": ["Commercial Books"],
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "genre", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Array of commercial books" }
+        }
+      },
+      "post": {
+        "summary": "Create new commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "201": { "description": "Book created" },
+          "403": { "description": "Admin authorization required" }
+        }
+      }
+    },
+    "/api/books/{id}": {
+      "get": {
+        "summary": "Get commercial book by MongoDB ID or ISBN (O(1) hash indexed)",
+        "tags": ["Commercial Books"],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Book details" },
+          "404": { "description": "Book not found" }
+        }
+      },
+      "patch": {
+        "summary": "Update commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "200": { "description": "Book updated" },
+          "403": { "description": "Admin authorization required" }
+        }
+      },
+      "delete": {
+        "summary": "Delete commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "200": { "description": "Book deleted" },
+          "403": { "description": "Admin authorization required" }
+        }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "summary": "Get authenticated user orders (or all orders for admin)",
+        "tags": ["Orders"],
+        "responses": {
+          "200": { "description": "Array of orders" },
+          "401": { "description": "Authentication required" }
+        }
+      },
+      "post": {
+        "summary": "Place simulated order (Checkout & FIFO Queue)",
+        "tags": ["Orders"],
+        "responses": {
+          "201": { "description": "Order created and queued" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    }
+  }
+}

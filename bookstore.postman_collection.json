@@ -1,0 +1,113 @@
+{
+  "info": {
+    "name": "PageTurner Bookstore API Collection",
+    "description": "Postman Collection for testing PageTurner Bookstore Next.js Route Handlers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Reader\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"Secret@123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bookstore.com\",\n  \"password\": \"Admin@123456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Current Session (Me)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Commercial Books",
+      "item": [
+        {
+          "name": "Get All Commercial Books",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/books", "host": ["{{baseUrl}}"], "path": ["api", "books"] }
+          }
+        },
+        {
+          "name": "Get Book by ISBN (O(1) Hash)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/books/978-0-7352-1129-2", "host": ["{{baseUrl}}"], "path": ["api", "books", "978-0-7352-1129-2"] }
+          }
+        },
+        {
+          "name": "Create Commercial Book (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"978-0-13-235088-4\",\n  \"title\": \"Clean Code\",\n  \"author\": \"Robert C. Martin\",\n  \"description\": \"A Handbook of Agile Software Craftsmanship.\",\n  \"price\": 34.50,\n  \"stock\": 15,\n  \"genre\": \"Science\",\n  \"rating\": 4.9,\n  \"featured\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/books", "host": ["{{baseUrl}}"], "path": ["api", "books"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Place Simulated Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"bookId\": \"comm-1\",\n      \"title\": \"Atomic Habits\",\n      \"author\": \"James Clear\",\n      \"price\": 18.5,\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"fullName\": \"Alice Reader\",\n    \"email\": \"alice@example.com\",\n    \"phone\": \"+91 9876543210\",\n    \"addressLine\": \"123 Park Lane\",\n    \"city\": \"Delhi\",\n    \"postalCode\": \"110001\",\n    \"country\": \"India\"\n  },\n  \"subtotal\": 18.5,\n  \"shippingFee\": 4.99,\n  \"total\": 23.49\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"] }
+          }
+        },
+        {
+          "name": "Get User Orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"] }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}
