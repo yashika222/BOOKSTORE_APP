@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -10,13 +10,11 @@ import {
   Radio,
   Result,
   Divider,
-  Tag,
   Alert,
   message,
   Spin,
 } from 'antd';
 import {
-  CheckCircleOutlined,
   ShoppingOutlined,
   SafetyCertificateOutlined,
   CreditCardOutlined,
@@ -26,6 +24,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearCart } from '@/store/cartSlice';
 import api from '@/lib/axios';
 import { IOrder } from '@/types';
+import BookCoverImage from '@/components/books/BookCoverImage';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -34,10 +33,10 @@ export default function CheckoutPage() {
 
   const cartItems = useAppSelector((state) => state.cart.items);
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+  const checkoutRequestId = useRef<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<IOrder | null>(null);
-  const [queuePosition, setQueuePosition] = useState<number>(1);
 
   // Subtotal calculated with reduce()
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
@@ -54,7 +53,15 @@ export default function CheckoutPage() {
     setSubmitting(true);
 
     try {
+      const requestStorageKey = `bookstore_checkout_request_${user?.id || 'account'}`;
+      if (!checkoutRequestId.current) {
+        checkoutRequestId.current =
+          sessionStorage.getItem(requestStorageKey) || crypto.randomUUID();
+        sessionStorage.setItem(requestStorageKey, checkoutRequestId.current);
+      }
+
       const orderPayload = {
+        requestId: checkoutRequestId.current,
         items: cartItems,
         shippingAddress: {
           fullName: values.fullName,
@@ -76,9 +83,10 @@ export default function CheckoutPage() {
 
       if (response.data?.success && response.data?.order) {
         setCompletedOrder(response.data.order);
-        setQueuePosition(response.data.queuePosition || 1);
+        sessionStorage.removeItem(requestStorageKey);
+        checkoutRequestId.current = null;
         dispatch(clearCart());
-        message.success('Order placed successfully! Enqueued in fulfillment line.');
+        message.success('Order placed successfully!');
       } else {
         throw new Error(response.data?.message || 'Failed to place order');
       }
@@ -107,7 +115,7 @@ export default function CheckoutPage() {
                   Order Reference: <b className="text-gray-900 font-mono">{completedOrder.orderId}</b>
                 </div>
                 <div>
-                  A confirmation email has been dispatched to <b>{completedOrder.shippingAddress.email}</b>.
+                  Your order has been saved to your PageTurner account.
                 </div>
               </div>
             }
@@ -130,20 +138,6 @@ export default function CheckoutPage() {
             ]}
           />
 
-          {/* Queue Demonstration Card */}
-          <div className="max-w-md mx-auto bg-violet-50/70 border border-violet-200 rounded-2xl p-5 text-left text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-violet-900 flex items-center gap-1.5">
-                <CheckCircleOutlined className="text-violet-600" /> Fulfillment Queue (FIFO)
-              </span>
-              <Tag color="purple" className="font-mono font-bold">
-                Position #{queuePosition}
-              </Tag>
-            </div>
-            <p className="text-gray-600 leading-relaxed">
-              In this demonstration, orders enter a First-In-First-Out (FIFO) queue for background processing. Admin can review and process orders in exact sequence.
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -174,10 +168,10 @@ export default function CheckoutPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div className="border-b border-gray-200 pb-4">
         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-          Simulated Checkout
+          Checkout
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Complete your demonstration order. No actual payment card will be charged.
+          Complete your order. Demo payments will not charge your card.
         </p>
       </div>
 
@@ -277,12 +271,12 @@ export default function CheckoutPage() {
             {/* Payment Method Option */}
             <div className="space-y-3">
               <h2 className="text-lg font-bold text-gray-900">
-                2. Payment Method (Demonstration)
+                2. Payment Method
               </h2>
 
               <Alert
-                message="Simulated Checkout Notice"
-                description="This application is a student learning demonstration. No actual payment gateway is integrated and no real money will be transferred."
+                message="Demo payment notice"
+                description="This checkout is for demonstration only. No payment will be processed."
                 type="info"
                 showIcon
                 className="text-xs rounded-xl"
@@ -293,7 +287,7 @@ export default function CheckoutPage() {
                   <div className="p-3 rounded-xl border border-violet-200 bg-violet-50/50 flex items-center justify-between">
                     <Radio value="simulated_card" defaultChecked>
                       <span className="font-semibold text-sm text-gray-800">
-                        Demo Simulated Card (Auto-approved)
+                        Card (demo only — no charge)
                       </span>
                     </Radio>
                     <CreditCardOutlined className="text-violet-600 text-lg" />
@@ -302,7 +296,7 @@ export default function CheckoutPage() {
                   <div className="p-3 rounded-xl border border-gray-200 bg-white flex items-center justify-between">
                     <Radio value="cash_on_delivery">
                       <span className="font-semibold text-sm text-gray-800">
-                        Pay on Delivery (Simulated)
+                        Pay on Delivery
                       </span>
                     </Radio>
                     <SafetyCertificateOutlined className="text-emerald-600 text-lg" />
@@ -334,12 +328,12 @@ export default function CheckoutPage() {
             {cartItems.map((item) => (
               <div key={String(item.bookId)} className="flex items-center gap-3 text-sm">
                 <div className="w-10 h-14 bg-stone-100 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-200">
-                  {item.coverImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={item.coverImage} alt={item.title} className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="text-sm">📖</span>
-                  )}
+                  <BookCoverImage
+                    src={item.coverImage}
+                    title={item.title}
+                    author={item.author}
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-gray-900 truncate">{item.title}</div>

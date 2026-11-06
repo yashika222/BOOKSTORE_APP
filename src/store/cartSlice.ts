@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { CartItem } from '@/types';
+import { logout, setCredentials, setGuestMode } from './authSlice';
 
 interface CartState {
   items: CartItem[];
@@ -23,6 +24,10 @@ export const cartSlice = createSlice({
 
     // Add item to cart or increment quantity if already present
     addToCart: (state, action: PayloadAction<CartItem>) => {
+      if (action.payload.isCommercial && action.payload.stock !== undefined && action.payload.stock < 1) {
+        return;
+      }
+
       const existingIndex = state.items.findIndex(
         (item) => String(item.bookId) === String(action.payload.bookId)
       );
@@ -73,6 +78,7 @@ export const cartSlice = createSlice({
         (item) => String(item.bookId) === String(bookId)
       );
       if (item) {
+        if (item.stock !== undefined && item.stock < 1) return;
         if (item.stock !== undefined && qty > item.stock) {
           item.qty = item.stock;
         } else {
@@ -94,6 +100,21 @@ export const cartSlice = createSlice({
       state.undoStack.push([...state.items]);
       state.items = [];
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout, (state) => {
+        state.items = [];
+        state.undoStack = [];
+      })
+      .addCase(setCredentials, (state) => {
+        state.items = [];
+        state.undoStack = [];
+      })
+      .addCase(setGuestMode, (state) => {
+        state.items = [];
+        state.undoStack = [];
+      });
   },
 });
 

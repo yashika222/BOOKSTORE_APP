@@ -20,9 +20,9 @@ import {
   UndoOutlined,
   ShoppingOutlined,
   ArrowRightOutlined,
-  CheckCircleOutlined,
   ClearOutlined,
 } from '@ant-design/icons';
+import BookCoverImage from '@/components/books/BookCoverImage';
 import { CartItem } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -55,11 +55,11 @@ export default function CartPage() {
 
   const handleUndo = () => {
     if (undoStack.length === 0) {
-      message.warning('Undo Stack is empty!');
+      message.warning('There are no recent removals to undo.');
       return;
     }
     dispatch(undoRemove());
-    message.success('Restored previous cart state from Undo Stack (LIFO)');
+    message.success('Item restored to your cart.');
   };
 
   const handleClear = () => {
@@ -75,16 +75,12 @@ export default function CartPage() {
       render: (_, item) => (
         <div className="flex items-center gap-3">
           <div className="w-12 h-16 rounded bg-stone-100 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-200">
-            {item.coverImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={item.coverImage}
-                alt={item.title}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <span className="text-xl">📖</span>
-            )}
+            <BookCoverImage
+              src={item.coverImage}
+              title={item.title}
+              author={item.author}
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
             <Link
@@ -124,7 +120,7 @@ export default function CartPage() {
       render: (qty: number, item) => (
         <InputNumber
           min={1}
-          max={item.stock || 99}
+          max={item.stock && item.stock > 0 ? item.stock : item.qty}
           value={qty}
           onChange={(newVal) =>
             dispatch(updateQuantity({ bookId: item.bookId, qty: newVal || 1 }))
@@ -146,7 +142,7 @@ export default function CartPage() {
       title: 'Action',
       key: 'action',
       render: (_, item) => (
-        <Tooltip title="Remove item (saves to Undo Stack)">
+        <Tooltip title="Remove item">
           <Button
             type="text"
             danger
@@ -170,7 +166,7 @@ export default function CartPage() {
                   Your shopping cart is currently empty
                 </h3>
                 <p className="text-sm text-gray-500 max-w-sm mx-auto mt-1">
-                  Discover thousands of titles in our infinite catalog or check commercial bestsellers.
+                  Explore the catalog and find your next read.
                 </p>
               </div>
             }
@@ -211,10 +207,10 @@ export default function CartPage() {
           </p>
         </div>
 
-        {/* Undo Stack and Clear Actions */}
+        {/* Undo and clear actions */}
         <div className="flex items-center gap-2">
           {undoStack.length > 0 && (
-            <Tooltip title="Restore deleted item from LIFO Stack">
+            <Tooltip title="Restore the most recently removed item">
               <Button
                 icon={<UndoOutlined />}
                 onClick={handleUndo}
@@ -315,14 +311,6 @@ export default function CartPage() {
             </Link>
           </div>
 
-          <div className="bg-stone-50 rounded-xl p-3 border border-gray-200/60 text-xs text-gray-500 space-y-1">
-            <div className="font-semibold text-gray-700 flex items-center gap-1">
-              <CheckCircleOutlined className="text-emerald-500" /> DSA in Cart:
-            </div>
-            <div>• <code>reduce()</code> computes subtotal and grand totals.</div>
-            <div>• <code>Stack</code> keeps undo history when removing books.</div>
-            <div>• <code>localStorage</code> persists your cart across reloads.</div>
-          </div>
         </div>
       </div>
     </div>

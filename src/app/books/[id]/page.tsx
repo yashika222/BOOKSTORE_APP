@@ -23,19 +23,20 @@ import {
   GlobalOutlined,
   ReadOutlined,
   CheckCircleOutlined,
-  BookOutlined,
 } from '@ant-design/icons';
 import { GutendexBook, ICommercialBook } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addToCart } from '@/store/cartSlice';
 import { toggleWishlist } from '@/store/wishlistSlice';
-import { SAMPLE_COMMERCIAL_BOOKS } from '@/lib/sampleBooks';
 import api from '@/lib/axios';
+import { useAuthPrompt } from '@/hooks/useAuthPrompt';
+import BookCoverImage from '@/components/books/BookCoverImage';
 
 export default function BookDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { requireAuthentication, prompt } = useAuthPrompt();
   const bookId = String(params?.id || '');
 
   const [bookData, setBookData] = useState<{
@@ -72,23 +73,31 @@ export default function BookDetailsPage() {
     const isNumeric = /^\d+$/.test(bookId);
 
     if (isNumeric) {
-      fetch(`https://gutendex.com/books/${bookId}`)
-        .then(async (res) => {
-          if (!res.ok) {
-            throw new Error(`Book not found on Gutenberg library (HTTP ${res.status}).`);
-          }
-          const book: GutendexBook = await res.json();
+      api
+        .get(`/api/gutendex?url=${encodeURIComponent(`https://gutendex.com/books/${bookId}`)}`)
+        .then((res) => {
+          const book: GutendexBook = res.data;
+          const summaryText =
+            book.summaries && book.summaries.length > 0
+              ? book.summaries.join('\n\n')
+              : null;
+          const fallbackDescription =
+            summaryText ||
+            (book.subjects && book.subjects.length > 0
+              ? `A celebrated classic exploring ${book.subjects.slice(0, 3).map((s) => s.split('--')[0].trim()).join(', ')}. Part of the public domain collection preserved by Project Gutenberg.`
+              : `Classic Project Gutenberg publication by ${book.authors?.map((a) => a.name).join(', ') || 'the author'}. Full digital access and reading downloads are provided free of charge.`);
+
           setBookData({
             id: book.id,
             title: book.title,
             authors:
               book.authors?.map((a) => a.name).join(', ') || 'Unknown Author',
-            description: `Classic Project Gutenberg public domain publication. Free digital access provided.`,
+            description: fallbackDescription,
             coverImage: book.formats['image/jpeg'] || book.formats['image/png'],
             subjects: book.subjects || [],
             languages: book.languages || ['en'],
-            price: 8.99,
-            stock: 100,
+            price: 0,
+            stock: 0,
             downloadCount: book.download_count,
             formats: book.formats,
             isCommercial: false,
@@ -107,11 +116,16 @@ export default function BookDetailsPage() {
         .then((res) => {
           if (res.data?.success && res.data?.data) {
             const book: ICommercialBook = res.data.data;
+            const fallbackDescription =
+              book.description && book.description.trim()
+                ? book.description
+                : `A curated commercial selection in ${book.genre || 'literature'}. Published in high quality edition and available directly through PageTurner Bookstore.`;
+
             setBookData({
               id: book._id || book.id || bookId,
               title: book.title,
               authors: book.author,
-              description: book.description,
+              description: fallbackDescription,
               coverImage: book.coverImage,
               subjects: [book.genre],
               languages: ['en'],
@@ -125,29 +139,12 @@ export default function BookDetailsPage() {
             throw new Error('Not found in backend');
           }
         })
-        .catch(() => {
-          // Check local sample books fallback
-          const localMatch = SAMPLE_COMMERCIAL_BOOKS.find(
-            (b) => b.id === bookId || b.isbn === bookId
+        .catch((err: unknown) => {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Unable to load this commercial book.'
           );
-          if (localMatch) {
-            setBookData({
-              id: localMatch.id || bookId,
-              title: localMatch.title,
-              authors: localMatch.author,
-              description: localMatch.description,
-              coverImage: localMatch.coverImage,
-              subjects: [localMatch.genre],
-              languages: ['en'],
-              price: localMatch.price,
-              stock: localMatch.stock,
-              isCommercial: true,
-              rating: localMatch.rating,
-              isbn: localMatch.isbn,
-            });
-          } else {
-            setError('Book could not be found in our database.');
-          }
         })
         .finally(() => {
           setLoading(false);
@@ -156,7 +153,7 @@ export default function BookDetailsPage() {
   }, [bookId]);
 
   const handleAddToCart = () => {
-    if (!bookData) return;
+    if (!bookData?.isCommercial) return;
 
     dispatch(
       addToCart({
@@ -183,7 +180,7 @@ export default function BookDetailsPage() {
         title: bookData.title,
         author: bookData.authors,
         coverImage: bookData.coverImage,
-        price: bookData.price,
+        ...(bookData.isCommercial ? { price: bookData.price } : {}),
         isCommercial: bookData.isCommercial,
         subjects: bookData.subjects.slice(0, 3),
       })
@@ -213,9 +210,14 @@ export default function BookDetailsPage() {
           description={error || 'Unable to locate the specified book record.'}
           showIcon
           action={
-            <Button onClick={() => router.push('/books')} type="primary">
-              Return to Catalog
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+              <Button onClick={() => router.push('/books')} type="primary" className="bg-violet-600">
+                Return to Catalog
+              </Button>
+            </div>
           }
         />
       </div>
@@ -228,7 +230,7 @@ export default function BookDetailsPage() {
       <div className="flex items-center justify-between">
         <Breadcrumb
           items={[
-            { title: <Link href="/">Home</Link> },
+            { title: <Link href="/home">Home</Link> },
             { title: <Link href="/books">Catalog</Link> },
             { title: <span className="text-gray-700 font-medium truncate max-w-[200px]">{bookData.title}</span> },
           ]}
@@ -247,22 +249,12 @@ export default function BookDetailsPage() {
         {/* Left Column: Book Cover */}
         <div className="lg:col-span-5 flex flex-col items-center">
           <div className="relative w-full max-w-sm rounded-2xl bg-gradient-to-b from-stone-100 to-stone-200 p-6 flex items-center justify-center shadow-lg border border-gray-200">
-            {bookData.coverImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={bookData.coverImage}
-                alt={bookData.title}
-                className="max-h-[420px] w-auto object-contain rounded-lg shadow-xl"
-              />
-            ) : (
-              <div className="h-80 flex flex-col items-center justify-center text-gray-400">
-                <BookOutlined className="text-6xl text-violet-400 mb-4" />
-                <span className="font-bold text-gray-700 text-center px-4">
-                  {bookData.title}
-                </span>
-                <span className="text-xs text-gray-400 mt-2">No cover image available</span>
-              </div>
-            )}
+            <BookCoverImage
+              src={bookData.coverImage}
+              title={bookData.title}
+              author={bookData.authors}
+              className="h-[420px] w-full max-w-sm object-contain rounded-lg shadow-xl"
+            />
 
             <div className="absolute top-4 left-4">
               {bookData.isCommercial ? (
@@ -271,7 +263,7 @@ export default function BookDetailsPage() {
                 </Tag>
               ) : (
                 <Tag color="purple" className="font-bold">
-                  Project Gutenberg #{bookData.id}
+                  Free Classic Ebook
                 </Tag>
               )}
             </div>
@@ -354,7 +346,7 @@ export default function BookDetailsPage() {
 
             {bookData.isbn && (
               <div className="text-xs text-gray-500 font-mono">
-                ISBN: <span className="font-semibold text-gray-800">{bookData.isbn}</span> (Indexed O(1))
+                ISBN: <span className="font-semibold text-gray-800">{bookData.isbn}</span>
               </div>
             )}
 
@@ -381,9 +373,13 @@ export default function BookDetailsPage() {
               </div>
               <div className="bg-stone-50 p-3 rounded-xl border border-gray-200">
                 <span className="text-gray-400 block mb-0.5">Availability</span>
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                  <CheckCircleOutlined /> In Stock ({bookData.stock})
-                </span>
+                {bookData.isCommercial ? (
+                  <span className={bookData.stock > 0 ? 'font-semibold text-emerald-600 flex items-center gap-1' : 'font-semibold text-red-600 flex items-center gap-1'}>
+                    <CheckCircleOutlined /> {bookData.stock > 0 ? `In Stock (${bookData.stock})` : 'Out of stock'}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-emerald-700">Free to read online</span>
+                )}
               </div>
               <div className="bg-stone-50 p-3 rounded-xl border border-gray-200">
                 <span className="text-gray-400 block mb-0.5">Format</span>
@@ -394,41 +390,54 @@ export default function BookDetailsPage() {
             </div>
           </div>
 
-          {/* Pricing & Add to Cart Purchase Section */}
+          {/* Purchase controls are only available for commercial inventory. */}
           <div className="bg-gradient-to-r from-purple-50/60 to-indigo-50/60 p-6 rounded-2xl border border-purple-200/80 space-y-4 mt-6">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs text-gray-500 block">Retail Price</span>
-                <span className="text-3xl font-extrabold text-violet-700">
-                  ${bookData.price.toFixed(2)}
-                </span>
+                {bookData.isCommercial ? (
+                  <>
+                    <span className="text-xs text-gray-500 block">Retail Price</span>
+                    <span className="text-3xl font-extrabold text-violet-700">
+                      ${bookData.price.toFixed(2)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs text-gray-500 block">Digital edition</span>
+                    <span className="text-2xl font-bold text-emerald-700">Free ebook</span>
+                  </>
+                )}
               </div>
 
               {/* Quantity Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Quantity:</span>
-                <InputNumber
-                  min={1}
-                  max={bookData.stock}
-                  value={quantity}
-                  onChange={(val) => setQuantity(val || 1)}
-                  className="w-20"
-                />
-              </div>
+              {bookData.isCommercial && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-600">Quantity:</span>
+                  <InputNumber
+                    min={1}
+                    max={bookData.stock}
+                    value={quantity}
+                    onChange={(val) => setQuantity(val || 1)}
+                    className="w-20"
+                  />
+                </div>
+              )}
             </div>
 
             {/* CTA Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <Button
-                type="primary"
-                size="large"
-                icon={<ShoppingCartOutlined className="text-lg" />}
-                onClick={handleAddToCart}
-                className="bg-violet-600 hover:bg-violet-700 font-bold h-12 shadow-md"
-              >
-                Add to Cart
-              </Button>
-
+            <div className={`grid grid-cols-1 ${bookData.isCommercial ? 'sm:grid-cols-2' : ''} gap-3 pt-2`}>
+              {bookData.isCommercial && (
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<ShoppingCartOutlined className="text-lg" />}
+                  onClick={handleAddToCart}
+                  disabled={bookData.stock <= 0}
+                  className="bg-violet-600 hover:bg-violet-700 font-bold h-12 shadow-md"
+                >
+                  Add to Cart
+                </Button>
+              )}
               <Button
                 size="large"
                 icon={isWishlisted ? <HeartFilled className="text-red-500" /> : <HeartOutlined />}
@@ -440,6 +449,7 @@ export default function BookDetailsPage() {
             </div>
           </div>
         </div>
+        {prompt}
       </div>
     </div>
   );

@@ -22,13 +22,13 @@
 
 ## 🌟 Project Overview
 
-**PageTurner** is designed as a clean, production-ready bookstore application suitable for academic demonstration, technical viva, and live production deployment.
+**PageTurner** is an existing bookstore application with public-domain browsing, commercial inventory, customer accounts, and an admin-managed store. Production use requires MongoDB and an administrator provisioned through a secure process.
 
 Instead of an overcomplicated separate Express service, this application leverages **Next.js App Router Route Handlers** for serverless backend execution, paired with **MongoDB Atlas** for data persistence.
 
 It uniquely balances two book discovery paradigms:
-1. **External Public E-Library:** Connects directly to the **Gutendex API** (`https://gutendex.com/books/`), streaming over 10,000+ public domain classic titles progressively using **Infinite Scrolling** (`IntersectionObserver`).
-2. **Commercial Bookstore Inventory:** Stores local commercial editions with real USD pricing, ratings, stock counts, and ISBNs in MongoDB, featuring a full admin CRUD management suite.
+1. **External Public E-Library:** Loads public-domain metadata through the server-side Gutendex proxy and follows pagination with **Infinite Scrolling** (`IntersectionObserver`). A clearly labeled, small local classics selection is shown if Gutendex is unavailable.
+2. **Commercial Bookstore Inventory:** Reads commercial editions, pricing, stock counts, and ISBNs from MongoDB, with admin CRUD management. The app does not seed or substitute example inventory when the database is empty or unavailable.
 
 ---
 
@@ -52,24 +52,23 @@ It uniquely balances two book discovery paradigms:
 ## 🚀 Key Features & User Journeys
 
 ### 1. Buyer Journey 🛒
-- **Home Page:** Hero section, book search bar, featured commercial bestsellers, trending Gutenberg classics, and category explorer.
+- **Home Page (`/home`):** Book search, featured MongoDB inventory, trending Gutenberg classics, and category navigation.
 - **Book Catalog (`/books`):**
   - **Infinite Scroll:** Progressively loads books in batches using the native browser `IntersectionObserver`.
   - **Duplicate Prevention:** Strips out duplicate book IDs using a JavaScript `Set`.
-  - **Filters:** Search by title/author, filter by genre, and sort by popularity, title, or ID.
+  - **Filters:** Search by title/author (submit with Enter or Search), filter by genre, and sort results.
   - **Tab Switcher:** Toggle between *Gutenberg Ebooks* and *Commercial Store Inventory*.
 - **Book Details (`/books/[id]`):** Dynamic routing displaying book cover, author information, download counts, language, subject tags, format reader links (EPUB, HTML), quantity selector, and purchase actions.
-- **Shopping Cart (`/cart`):** Add/remove books, adjust quantities, calculate subtotal and tax via `reduce()`, persist items in `localStorage`, and undo removals via **Stack (LIFO)**.
+- **Shopping Cart (`/cart`):** Add/remove commercial books, adjust quantities, calculate totals, persist user-scoped browser state, and undo removals.
 - **Wishlist (`/wishlist`):** Save favorite books with duplicate prevention via `Set`, with a one-click "Move to Cart" button.
-- **Checkout (`/checkout`):** Validated shipping address form, simulated payment option, and order placement.
-- **Order Queue Confirmation:** Generates order ID and places order into the FIFO fulfillment queue.
+- **Checkout (`/checkout`):** Authenticated demo orders are validated against MongoDB inventory and server-calculated pricing. No payment is processed.
 - **Order History (`/orders`):** Lists user's past purchases retrieved from MongoDB.
 
 ### 2. Admin Journey ⚙️
 - **Admin Dashboard (`/admin`):**
-  - KPI overview: Total titles, stock units, orders placed, gross revenue.
+  - KPI overview: Total titles, stock units, orders placed, and order totals.
   - **CRUD Book Management:** Add, edit, and delete commercial bookstore inventory.
-  - **Order Queue Monitoring:** View all customer orders and their live queue status.
+  - **Order Review:** View persisted customer orders.
   - Access restricted via JWT role verification (`role === 'admin'`).
 
 ---
@@ -106,11 +105,16 @@ sequenceDiagram
    ```typescript
    setBooks((previous) => {
      const ids = new Set(previous.map((book) => book.id));
-     return [...previous, ...data.results.filter((book) => !ids.has(book.id))];
+     const uniqueBooks = data.results.filter((book) => {
+       if (ids.has(book.id)) return false;
+       ids.add(book.id);
+       return true;
+     });
+     return [...previous, ...uniqueBooks];
    });
    ```
 4. **Retry & Error Handling:** When requests fail, an Ant Design `Alert` with a "Retry" button appears, allowing the user to resume without losing already-loaded books.
-5. **Clean Reset on Search:** Whenever the search input or genre filter changes, existing books and pagination states are cleared before fetching the new query.
+5. **Clean Reset on Search:** Submitting a search or changing the genre clears existing books and pagination state before fetching the new query.
 
 ---
 
@@ -126,7 +130,7 @@ The project fulfills all required data structure concepts in practical, idiomati
 | **`Set`** | `src/store/wishlistSlice.ts`, `src/app/books/page.tsx` | 1) Enforces unique wishlist entries in $O(1)$ time.<br>2) Prevents duplicate book IDs during infinite scroll pagination. |
 | **`Map`** | `src/lib/dsa.ts` (`BookLookupMap`) | High-speed in-memory key-value cache mapping ISBN $\to$ Book object for $O(1)$ lookups. |
 | **`Stack` (LIFO)** | `src/store/cartSlice.ts` (`undoStack`) | **Cart Undo Feature:** Pushes cart state onto a stack when an item is deleted. Clicking "Undo" pops the previous state back. |
-| **`Queue` (FIFO)** | `src/lib/dsa.ts` (`globalOrderQueue`) | **Order Fulfillment Queue:** When orders are created during checkout, they enter a First-In, First-Out queue (`enqueue`). Displays position `#1`, `#2`, etc. |
+| **`Queue` (FIFO)** | `src/lib/dsa.ts` (`OrderQueue`) | Standalone data-structure example; it is not connected to persisted order processing. |
 | **Hash Table Lookup** | `src/models/Book.ts`, `src/app/api/books/[id]` | Indexed `isbn` field in MongoDB provides $O(1)$ direct retrieval of commercial books. |
 | **Tree Structure** | `src/components/books/CategoryTree.tsx` | Ant Design `Tree` hierarchical category navigation (Fiction $\to$ Classics, Sci-Fi; Non-Fiction $\to$ Science, History). |
 
@@ -143,7 +147,7 @@ All APIs are written using Next.js Route Handlers (`src/app/api/...`):
 - `POST /api/auth/logout` — Destroys session cookie (`maxAge: 0`).
 
 ### 2. Commercial Book Endpoints
-- `GET /api/books` — Lists commercial books with search, genre, and limit filters. Auto-seeds default books if empty.
+- `GET /api/books` — Lists only persisted commercial books with search, genre, and limit filters. Returns an error when MongoDB is unavailable.
 - `POST /api/books` — Protected: Admin-only creation of commercial titles.
 - `GET /api/books/[id]` — Retrieves book by MongoDB ObjectId or ISBN.
 - `PATCH /api/books/[id]` — Protected: Admin-only update of stock, price, or details.
@@ -151,7 +155,7 @@ All APIs are written using Next.js Route Handlers (`src/app/api/...`):
 
 ### 3. Order Endpoints
 - `GET /api/orders` — Returns orders for current authenticated user (or all orders if admin).
-- `POST /api/orders` — Creates order in MongoDB and enqueues in FIFO order processing queue.
+- `POST /api/orders` — Creates an authenticated demo order from MongoDB inventory and database-calculated pricing. No payment is processed.
 
 ---
 
@@ -172,7 +176,8 @@ BookStore/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx                # Root layout with AntdRegistry & Redux Provider
-│   │   ├── page.tsx                  # Home Page (Hero, Featured, Categories)
+│   │   ├── page.tsx                  # Authentication entry page
+│   │   ├── home/page.tsx             # Public bookstore homepage
 │   │   ├── globals.css               # Tailwind CSS directives & custom styles
 │   │   ├── books/
 │   │   │   ├── page.tsx              # Catalog with Gutendex Infinite Scroll & Filters
@@ -181,9 +186,9 @@ BookStore/
 │   │   ├── wishlist/page.tsx         # Wishlist page with Set duplicate prevention
 │   │   ├── checkout/page.tsx         # Simulated checkout and order confirmation
 │   │   ├── orders/page.tsx           # Order History retrieved from MongoDB
-│   │   ├── login/page.tsx            # Login with quick viva demo buttons
+│   │   ├── login/page.tsx            # Customer login and guest option
 │   │   ├── register/page.tsx         # Customer registration
-│   │   ├── admin/page.tsx            # Protected Admin Dashboard (CRUD & Queue)
+│   │   ├── admin/page.tsx            # Protected inventory and order dashboard
 │   │   ├── docs/page.tsx             # Interactive Swagger / API documentation page
 │   │   └── api/                      # Next.js Route Handlers
 │   │       ├── auth/
@@ -211,7 +216,6 @@ BookStore/
 │   │   ├── dsa.ts                    # Computer science & DSA practical utilities
 │   │   ├── logger.ts                 # Winston server logger with redaction
 │   │   ├── mongodb.ts                # Cached Mongoose connection
-│   │   └── sampleBooks.ts            # Default commercial bookstore dataset
 │   ├── models/
 │   │   ├── Book.ts                   # Commercial Book Mongoose schema
 │   │   ├── Order.ts                  # Order Mongoose schema
@@ -255,7 +259,7 @@ feature/* (feature development branches)
   - `feature/book-catalog`: Infinite scroll and Gutendex integration.
   - `feature/cart-wishlist`: Redux Toolkit cart, Stack undo, and Set wishlist.
   - `feature/authentication`: JWT auth, bcrypt hashing, and protected routes.
-  - `feature/admin-dashboard`: Commercial books CRUD and order queue.
+  - `feature/admin-dashboard`: Commercial books CRUD and order review.
 
 ---
 
@@ -279,53 +283,56 @@ Create a `.env.local` file in the root directory (based on `.env.example`):
 # MongoDB Connection URI (Atlas or Local)
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/bookstore?retryWrites=true&w=majority
 
-# JWT Authentication Secret Key (minimum 32 characters)
-JWT_SECRET=super_secret_jwt_key_change_in_production_min_32_chars
+# JWT Authentication Secret Key (generate a unique random value of at least 32 characters)
+JWT_SECRET=<your-random-secret>
 
 # Optional Port and Base URL configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Initial Admin Credentials
-ADMIN_EMAIL=admin@bookstore.com
-ADMIN_PASSWORD=Admin@123456
-ADMIN_NAME=Store Manager
 ```
+
+Create the initial admin account through a secure, deployment-specific provisioning process. Registration only creates customer accounts; this project does not ship default admin credentials or an admin seed.
 
 ### 4. Run Development Server
 ```bash
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+The development command uses Turbopack for faster page compilation. If you encounter a Turbopack compatibility issue, use `npm run dev:webpack` to start the Webpack-based development server instead.
 
 ---
 
 ## 🧪 Testing & API Documentation
 
-### 1. Interactive Swagger / OpenAPI Page
+### 1. API Reference and OpenAPI Specification
 Visit the in-app documentation at:
 ```
 http://localhost:3000/docs
 ```
-You can view all endpoints, inspect schemas, and test live requests with the **"Try Request"** button.
+The page provides API examples and downloads for the OpenAPI specification and Postman collection. Its **Try Request** buttons issue live requests that can change persistent data; use a test database.
 
 ### 2. Postman Collection
 Import `bookstore.postman_collection.json` located in the root directory directly into Postman to test all endpoints.
 
-### 3. Demo Credentials
+### 3. Demo / Viva Credentials
 - **Admin Account:** `admin@bookstore.com` / `Admin@123456`
 - **Customer Account:** `reader@bookstore.com` / `Reader@123456`
-*(On the `/login` page, click "Fill Admin Account" or "Fill Customer Account" for instant one-click login during viva).*
+*(On the `/login` page, you can click "Fill Admin Account" or "Fill Customer Account" for instant one-click login).*
+
+### 4. Code Quality & Verification
+- Run `npm run lint` for ESLint checks.
+- Run `npx tsc --noEmit` for TypeScript validation.
+- Run `npm run build` for production compilation.
 
 ---
 
 ## 🚀 Vercel Deployment Guide
 
-Deploying PageTurner to Vercel takes under 3 minutes:
+To deploy PageTurner to Vercel:
 
 1. **Push your code to GitHub:**
    ```bash
    git add .
-   git commit -m "feat: complete bookstore full-stack application"
+   git commit -m "Deploy PageTurner"
    git push origin main
    ```
 2. **Log into [Vercel](https://vercel.com):**
@@ -334,9 +341,7 @@ Deploying PageTurner to Vercel takes under 3 minutes:
 3. **Configure Environment Variables in Vercel:**
    Add the following variables in the Vercel project settings:
    - `MONGODB_URI` — Your MongoDB Atlas production connection string.
-     *(Ensure Network Access in MongoDB Atlas has `0.0.0.0/0` whitelisted so Vercel serverless functions can connect).*
+     *(Configure MongoDB Atlas network access to allow the Vercel deployment, following your organization's security policy.)*
    - `JWT_SECRET` — A secure random string (e.g. 64 characters).
-   - `ADMIN_EMAIL` — `admin@bookstore.com`
-   - `ADMIN_PASSWORD` — A strong password for initial admin initialization.
 4. **Deploy:**
    - Click **Deploy**. Vercel will run `next build` and publish your live bookstore URL.

@@ -9,26 +9,31 @@ import {
   ShoppingCartOutlined,
   ClearOutlined,
   BookOutlined,
-  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { removeFromWishlist, clearWishlist } from '@/store/wishlistSlice';
 import { addToCart } from '@/store/cartSlice';
+import BookCoverImage from '@/components/books/BookCoverImage';
+import { bookDetailsHref } from '@/lib/bookRoutes';
 
 export default function WishlistPage() {
   const dispatch = useAppDispatch();
   const wishlistItems = useAppSelector((state) => state.wishlist.items);
 
   const handleMoveToCart = (item: (typeof wishlistItems)[0]) => {
+    if (!item.isCommercial) {
+      message.info('This is a free digital book and cannot be added to the shopping cart.');
+      return;
+    }
+
     dispatch(
       addToCart({
         bookId: item.bookId,
         title: item.title,
         author: item.author,
-        price: item.price || 9.99,
+        price: item.price || 0,
         coverImage: item.coverImage,
         qty: 1,
-        stock: 50,
         isCommercial: item.isCommercial,
       })
     );
@@ -59,7 +64,7 @@ export default function WishlistPage() {
             </Tag>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Saved books powered by <code>Set</code> uniqueness logic (zero duplicate entries).
+            Keep the books you love in one place and find them whenever you return.
           </p>
         </div>
 
@@ -114,19 +119,12 @@ export default function WishlistPage() {
               bodyStyle={{ padding: 14, display: 'flex', flexDirection: 'column', flex: 1 }}
               cover={
                 <div className="h-48 bg-stone-100 flex items-center justify-center p-3 relative group">
-                  {item.coverImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={item.coverImage}
-                      alt={item.title}
-                      className="max-h-full max-w-full object-contain rounded drop-shadow group-hover:scale-105 transition-transform"
-                    />
-                  ) : (
-                    <div className="text-center text-gray-400">
-                      <BookOutlined className="text-4xl text-violet-400 mb-1" />
-                      <div className="text-xs font-semibold px-2 line-clamp-1">{item.title}</div>
-                    </div>
-                  )}
+                  <BookCoverImage
+                    src={item.coverImage}
+                    title={item.title}
+                    author={item.author}
+                    className="max-h-full max-w-full object-contain transition-transform group-hover:scale-105"
+                  />
 
                   <Tooltip title="Remove from wishlist">
                     <button
@@ -141,7 +139,7 @@ export default function WishlistPage() {
               }
             >
               <div className="flex-1 flex flex-col">
-                <Link href={`/books/${item.bookId}`}>
+                <Link href={bookDetailsHref(item.bookId, item.isCommercial ? 'store' : 'gutendex')}>
                   <h3
                     className="font-bold text-sm text-gray-900 hover:text-violet-600 transition-colors line-clamp-2 leading-snug mb-1"
                     title={item.title}
@@ -156,7 +154,7 @@ export default function WishlistPage() {
 
                 <div className="mt-auto pt-2 border-t border-gray-100 flex items-center justify-between">
                   <span className="font-extrabold text-sm text-violet-700">
-                    ${(item.price || 9.99).toFixed(2)}
+                    {item.isCommercial ? `$${(item.price || 0).toFixed(2)}` : 'Free ebook'}
                   </span>
                   {item.isCommercial ? (
                     <Tag color="gold" className="text-[10px]">
@@ -169,28 +167,29 @@ export default function WishlistPage() {
                   )}
                 </div>
 
-                <Button
-                  type="primary"
-                  icon={<ShoppingCartOutlined />}
-                  onClick={() => handleMoveToCart(item)}
-                  className="mt-3 bg-violet-600 hover:bg-violet-700 text-xs font-semibold"
-                  block
-                >
-                  Move to Cart
-                </Button>
+                {item.isCommercial ? (
+                  <Button
+                    type="primary"
+                    icon={<ShoppingCartOutlined />}
+                    onClick={() => handleMoveToCart(item)}
+                    className="mt-3 bg-violet-600 hover:bg-violet-700 text-xs font-semibold"
+                    block
+                  >
+                    Move to Cart
+                  </Button>
+                ) : (
+                  <Link href={bookDetailsHref(item.bookId, 'gutendex')} className="mt-3 block">
+                    <Button className="text-xs font-semibold" block>
+                      Read free ebook
+                    </Button>
+                  </Link>
+                )}
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      {/* DSA Set Concept note */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200/80 text-xs text-gray-600 flex items-center gap-3">
-        <CheckCircleOutlined className="text-emerald-500 text-lg flex-shrink-0" />
-        <div>
-          <b>DSA Implementation:</b> The wishlist utilizes a <code>Set</code> membership check to enforce uniqueness before adding an item. Duplicate clicks on the same book are rejected in <code>O(1)</code> time complexity.
-        </div>
-      </div>
     </div>
   );
 }

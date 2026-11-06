@@ -10,12 +10,12 @@ import {
   Input,
   InputNumber,
   Select,
+  Alert,
   Tag,
   Popconfirm,
   Tabs,
   Card,
   Spin,
-  Alert,
   message,
   Switch,
   Statistic,
@@ -36,6 +36,7 @@ import {
 import { useAppSelector } from '@/store/hooks';
 import { ICommercialBook, IOrder } from '@/types';
 import api from '@/lib/axios';
+import BookCoverImage from '@/components/books/BookCoverImage';
 
 export default function AdminDashboardPage() {
   const { user, isAuthenticated, loading: authLoading } = useAppSelector(
@@ -46,6 +47,8 @@ export default function AdminDashboardPage() {
   const [books, setBooks] = useState<ICommercialBook[]>([]);
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [booksError, setBooksError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   // Modal State for Add / Edit
   const [modalVisible, setModalVisible] = useState(false);
@@ -56,12 +59,17 @@ export default function AdminDashboardPage() {
   // Fetch Commercial Books
   const fetchBooks = useCallback(async () => {
     try {
-      const res = await api.get('/api/books');
-      if (res.data?.success && res.data?.data) {
+      const res = await api.get('/api/books', { params: { page: 1, pageSize: 1000 } });
+      if (res.data?.success && Array.isArray(res.data?.data)) {
         setBooks(res.data.data);
+        setBooksError(null);
+      } else {
+        throw new Error(res.data?.message || 'Failed to load books.');
       }
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load books');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : 'Failed to load books.';
+      setBooksError(error);
+      message.error(error);
     }
   }, []);
 
@@ -69,11 +77,16 @@ export default function AdminDashboardPage() {
   const fetchOrders = useCallback(async () => {
     try {
       const res = await api.get('/api/orders');
-      if (res.data?.success && res.data?.data) {
+      if (res.data?.success && Array.isArray(res.data?.data)) {
         setOrders(res.data.data);
+        setOrdersError(null);
+      } else {
+        throw new Error(res.data?.message || 'Failed to load orders.');
       }
-    } catch {
-      // Ignored if user not authorized
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : 'Failed to load orders.';
+      setOrdersError(error);
+      message.error(error);
     }
   }, []);
 
@@ -189,18 +202,6 @@ export default function AdminDashboardPage() {
             This dashboard is restricted to authorized bookstore administrators. Please sign in with an admin account.
           </p>
 
-          <Alert
-            message="Default Admin Credentials"
-            description={
-              <div className="text-xs space-y-1">
-                <div>Email: <b>admin@bookstore.com</b></div>
-                <div>Password: <b>Admin@123456</b></div>
-              </div>
-            }
-            type="info"
-            className="text-left rounded-xl mt-2"
-          />
-
           <div className="pt-2">
             <Link href="/login">
               <Button type="primary" size="large" className="bg-violet-600 font-semibold">
@@ -226,12 +227,12 @@ export default function AdminDashboardPage() {
       render: (_, book) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-14 bg-stone-100 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-200">
-            {book.coverImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={book.coverImage} alt={book.title} className="w-full h-full object-contain" />
-            ) : (
-              <span className="text-sm">📖</span>
-            )}
+            <BookCoverImage
+              src={book.coverImage}
+              title={book.title}
+              author={book.author}
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
             <div className="font-bold text-sm text-gray-900">{book.title}</div>
@@ -368,7 +369,7 @@ export default function AdminDashboardPage() {
             </Tag>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Manage commercial book catalog (CRUD) and monitor the store order fulfillment queue.
+            Manage commercial book inventory and review customer orders.
           </p>
         </div>
 
@@ -388,28 +389,28 @@ export default function AdminDashboardPage() {
         <Card className="rounded-2xl border border-gray-200/80 shadow-sm">
           <Statistic
             title="Commercial Titles"
-            value={books.length}
+            value={booksError ? '—' : books.length}
             prefix={<BookOutlined className="text-violet-600 mr-1" />}
           />
         </Card>
         <Card className="rounded-2xl border border-gray-200/80 shadow-sm">
           <Statistic
             title="Total Stock Units"
-            value={totalStockUnits}
+            value={booksError ? '—' : totalStockUnits}
             prefix={<ShoppingOutlined className="text-amber-500 mr-1" />}
           />
         </Card>
         <Card className="rounded-2xl border border-gray-200/80 shadow-sm">
           <Statistic
             title="Orders Placed"
-            value={orders.length}
+            value={ordersError ? '—' : orders.length}
             prefix={<CheckCircleOutlined className="text-emerald-500 mr-1" />}
           />
         </Card>
         <Card className="rounded-2xl border border-gray-200/80 shadow-sm">
           <Statistic
-            title="Gross Revenue"
-            value={totalRevenue}
+            title="Order Total"
+            value={ordersError ? '—' : totalRevenue}
             precision={2}
             prefix={<DollarOutlined className="text-violet-600 mr-1" />}
           />
@@ -434,7 +435,7 @@ export default function AdminDashboardPage() {
               key: 'orders',
               label: (
                 <span className="font-bold flex items-center gap-1.5">
-                  <LineChartOutlined /> Customer Orders & Queue ({orders.length})
+                  <LineChartOutlined /> Customer Orders ({orders.length})
                 </span>
               ),
             },
@@ -442,6 +443,15 @@ export default function AdminDashboardPage() {
         />
 
         {activeTab === 'books' ? (
+          booksError ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Commercial inventory unavailable"
+            description={booksError}
+            action={<Button size="small" onClick={() => void fetchBooks()}>Retry</Button>}
+          />
+          ) : (
           <Table
             columns={bookColumns}
             dataSource={books}
@@ -449,7 +459,17 @@ export default function AdminDashboardPage() {
             pagination={{ pageSize: 8 }}
             scroll={{ x: 800 }}
           />
+          )
         ) : (
+          ordersError ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Customer orders unavailable"
+            description={ordersError}
+            action={<Button size="small" onClick={() => void fetchOrders()}>Retry</Button>}
+          />
+          ) : (
           <Table
             columns={orderColumns}
             dataSource={orders}
@@ -457,6 +477,7 @@ export default function AdminDashboardPage() {
             pagination={{ pageSize: 8 }}
             scroll={{ x: 800 }}
           />
+          )
         )}
       </div>
 

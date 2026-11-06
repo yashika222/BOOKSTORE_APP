@@ -1,136 +1,280 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import connectToDatabase from '@/lib/mongodb';
-import Order from '@/models/Order';
-import { getUserFromRequest } from '@/lib/auth';
-import { globalOrderQueue } from '@/lib/dsa';
+import Book from '@/models/Book';
+import Order, { IOrderDocument } from '@/models/Order';
+import { getCurrentUserFromRequest } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/orders - List orders for authenticated user or all orders for admin
+interface SubmittedOrderItem {
+  bookId?: unknown;
+  qty?: unknown;
+  isCommercial?: unknown;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+// GET /api/orders - Customers see their own orders; admins see all orders.
 export async function GET(request: NextRequest) {
   try {
-    const user = getUserFromRequest(request);
-
+    const user = await getCurrentUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
-        { success: false, message: 'Please log in to view orders' },
+        { success: false, message: 'Please log in to view orders.' },
         { status: 401 }
       );
     }
 
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+      const query = user.role === 'admin' ? {} : { userId: user.userId };
+      const orders = await Order.find(query).sort({ createdAt: -1 });
 
-    let query: any = {};
-    if (user.role !== 'admin') {
-      // Customer can only view their own orders
-      query = { userEmail: user.email.toLowerCase() };
+      return NextResponse.json({
+        success: true,
+        count: orders.length,
+        data: orders,
+      });
+    } catch (dbErr) {
+      logger.warn(`Database offline when fetching orders, returning empty order list: ${dbErr}`);
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        data: [],
+      });
     }
-
-    const orders = await Order.find(query).sort({ createdAt: -1 });
-
-    return NextResponse.json({
-      success: true,
-      count: orders.length,
-      data: orders,
-      queueState: user.role === 'admin' ? globalOrderQueue.getAll() : undefined,
-    });
-  } catch (error: any) {
-    logger.error(`Error fetching orders: ${error.message}`);
+  } catch (error) {
+    logger.error(`Error fetching orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(
-      { success: false, message: error.message || 'Error fetching orders' },
+      { success: false, message: 'Unable to load orders right now.' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/orders - Create a new order (Checkout)
+// POST /api/orders - Create a customer order from verified commercial inventory.
 export async function POST(request: NextRequest) {
+  let duplicateLookup: { orderId: string; userId: string } | null = null;
+
   try {
-    const user = getUserFromRequest(request);
-    await connectToDatabase();
+    const user = await getCurrentUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: 'Please log in before placing an order.' },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
-    const { items, shippingAddress, subtotal, shippingFee, total, paymentMethod } = body;
+    const submittedItems = body?.items as SubmittedOrderItem[] | undefined;
+    const address = body?.shippingAddress;
 
-    // Validate items
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(submittedItems) || submittedItems.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Order must contain at least one item' },
+        { success: false, message: 'Order must contain at least one item.' },
         { status: 400 }
       );
     }
 
-    // Validate shipping info
     if (
-      !shippingAddress ||
-      !shippingAddress.fullName ||
-      !shippingAddress.email ||
-      !shippingAddress.phone ||
-      !shippingAddress.addressLine ||
-      !shippingAddress.city ||
-      !shippingAddress.postalCode
+      !address ||
+      !isNonEmptyString(address.fullName) ||
+      !isNonEmptyString(address.email) ||
+      !/^\S+@\S+\.\S+$/.test(address.email) ||
+      !isNonEmptyString(address.phone) ||
+      !isNonEmptyString(address.addressLine) ||
+      !isNonEmptyString(address.city) ||
+      !isNonEmptyString(address.postalCode)
     ) {
       return NextResponse.json(
-        { success: false, message: 'Please complete all required shipping fields' },
+        { success: false, message: 'Please complete all required shipping fields.' },
         { status: 400 }
       );
     }
 
-    // Generate unique order reference (e.g. ORD-98231)
-    const orderId = `ORD-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+    const quantities = new Map<string, number>();
+    for (const item of submittedItems) {
+      if (
+        !item ||
+        item.isCommercial !== true ||
+        !isNonEmptyString(item.bookId) ||
+        !Number.isInteger(item.qty) ||
+        Number(item.qty) < 1 ||
+        Number(item.qty) > 99
+      ) {
+        return NextResponse.json(
+          { success: false, message: 'Order items must be valid commercial books with quantities from 1 to 99.' },
+          { status: 400 }
+        );
+      }
 
-    // Enqueue order in FIFO Order Processing Queue (DSA requirement)
-    const buyerEmail = user?.email || shippingAddress.email;
-    const queuedTask = globalOrderQueue.enqueue(orderId, buyerEmail, total);
-    const queuePos = globalOrderQueue.getPosition(orderId);
+      const bookId = item.bookId.trim();
+      quantities.set(bookId, (quantities.get(bookId) || 0) + Number(item.qty));
+    }
 
-    // Save in MongoDB
-    const newOrder = await Order.create({
-      orderId,
-      userId: user?.userId || undefined,
-      userEmail: buyerEmail.toLowerCase(),
-      items: items.map((i: any) => ({
-        bookId: String(i.bookId),
-        title: i.title,
-        author: i.author,
-        price: Number(i.price),
-        quantity: Number(i.qty || i.quantity || 1),
-        coverImage: i.coverImage || '',
-      })),
-      subtotal: Number(subtotal),
-      shippingFee: Number(shippingFee || 0),
-      total: Number(total),
-      shippingAddress: {
-        fullName: shippingAddress.fullName.trim(),
-        email: shippingAddress.email.trim(),
-        phone: shippingAddress.phone.trim(),
-        addressLine: shippingAddress.addressLine.trim(),
-        city: shippingAddress.city.trim(),
-        state: shippingAddress.state?.trim() || '',
-        postalCode: shippingAddress.postalCode.trim(),
-        country: shippingAddress.country?.trim() || 'India',
-      },
-      status: 'pending',
-      paymentMethod: paymentMethod || 'simulated_card',
-      queuePosition: queuePos,
-    });
+    if (Array.from(quantities.values()).some((quantity) => quantity > 99)) {
+      return NextResponse.json(
+        { success: false, message: 'The maximum quantity per book is 99.' },
+        { status: 400 }
+      );
+    }
 
-    logger.info(`New Order Created: ${orderId} by ${buyerEmail} (Queue Pos #${queuePos})`);
+    const requestId =
+      typeof body.requestId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId)
+        ? body.requestId
+        : crypto.randomUUID();
+    const paymentMethod =
+      body.paymentMethod === 'cash_on_delivery' ? 'cash_on_delivery' : 'simulated_card';
+    const orderId = `ORD-${requestId.toUpperCase()}`;
+    duplicateLookup = { orderId, userId: user.userId };
+    let orderDocument: IOrderDocument | undefined;
+
+    try {
+      await connectToDatabase();
+      const previousOrder = await Order.findOne({ orderId, userId: user.userId });
+      if (previousOrder) {
+        return NextResponse.json(
+          {
+            success: true,
+            message: 'This order has already been placed.',
+            order: previousOrder,
+          }
+        );
+      }
+
+      const objectIds = Array.from(quantities.keys()).filter(
+        (id) => mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id)
+      );
+      const isbns = Array.from(quantities.keys());
+
+      const books = await Book.find({
+        $or: [{ _id: { $in: objectIds } }, { isbn: { $in: isbns } }],
+      });
+
+      if (books.length === quantities.size) {
+        let subtotal = 0;
+        const resolvedItems = [];
+
+        for (const [requestedKey, quantity] of Array.from(quantities.entries())) {
+          const book = books.find(
+            (candidate) =>
+              candidate._id.toString() === requestedKey || candidate.isbn === requestedKey
+          );
+
+          if (!book || book.stock < quantity) {
+            throw new Error(`STOCK_UNAVAILABLE:${requestedKey}`);
+          }
+
+          subtotal += book.price * quantity;
+          resolvedItems.push({
+            bookId: book._id.toString(),
+            title: book.title,
+            author: book.author,
+            price: book.price,
+            quantity,
+            coverImage: book.coverImage || '',
+          });
+        }
+
+        const shippingFee = subtotal > 35 || subtotal === 0 ? 0 : 4.99;
+        const total = Number((subtotal + shippingFee + subtotal * 0.05).toFixed(2));
+
+        for (const [requestedKey, quantity] of Array.from(quantities.entries())) {
+          const book = books.find(
+            (candidate) =>
+              candidate._id.toString() === requestedKey || candidate.isbn === requestedKey
+          );
+          if (!book) throw new Error(`STOCK_UNAVAILABLE:${requestedKey}`);
+          const updated = await Book.findOneAndUpdate(
+            { _id: book._id, stock: { $gte: quantity } },
+            { $inc: { stock: -quantity } },
+            { new: true }
+          );
+          if (!updated) throw new Error(`STOCK_UNAVAILABLE:${requestedKey}`);
+        }
+
+        const [createdOrder] = await Order.create([
+          {
+            orderId,
+            userId: user.userId,
+            userEmail: user.email,
+            items: resolvedItems,
+            subtotal,
+            shippingFee,
+            total,
+            shippingAddress: {
+              fullName: address.fullName.trim(),
+              email: address.email.trim(),
+              phone: address.phone.trim(),
+              addressLine: address.addressLine.trim(),
+              city: address.city.trim(),
+              state: isNonEmptyString(address.state) ? address.state.trim() : 'N/A',
+              postalCode: address.postalCode.trim(),
+              country: isNonEmptyString(address.country) ? address.country.trim() : 'India',
+            },
+            status: 'pending',
+            paymentMethod,
+          },
+        ]);
+
+        orderDocument = createdOrder;
+      }
+    } catch (dbErr: unknown) {
+      const message = dbErr instanceof Error ? dbErr.message : 'Unknown error';
+      if (message.startsWith('STOCK_UNAVAILABLE:')) {
+        return NextResponse.json(
+          { success: false, message: 'One or more books are out of stock.' },
+          { status: 409 }
+        );
+      }
+      logger.warn(`Database order processing encountered error: ${message}`);
+      return NextResponse.json(
+        { success: false, message: 'Unable to place your order because inventory could not be verified.' },
+        { status: 503 }
+      );
+    }
+
+    if (!orderDocument) {
+      return NextResponse.json(
+        { success: false, message: 'One or more books are unavailable for checkout.' },
+        { status: 409 }
+      );
+    }
+
+    logger.info(`New order created: ${orderId} by ${user.email}`);
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Order created successfully and entered fulfillment queue.',
-        order: newOrder,
-        queuePosition: queuePos,
+        message: 'Order created successfully.',
+        order: orderDocument,
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    logger.error(`Error creating order: ${error.message}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Error creating order: ${message}`);
+
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 11000 &&
+      duplicateLookup
+    ) {
+      return NextResponse.json({
+        success: true,
+        message: 'This order has already been placed.',
+      });
+    }
+
     return NextResponse.json(
-      { success: false, message: error.message || 'Failed to place order' },
+      { success: false, message: 'Unable to place your order right now.' },
       { status: 500 }
     );
   }

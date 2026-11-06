@@ -19,6 +19,7 @@ export interface GutendexBook {
   media_type?: string;
   formats: Record<string, string>;
   download_count: number;
+  summaries?: string[];
 }
 
 export interface GutendexApiResponse {
@@ -26,6 +27,7 @@ export interface GutendexApiResponse {
   next: string | null;
   previous: string | null;
   results: GutendexBook[];
+  offlineFallback?: boolean;
 }
 
 // Commercial Book Types (for store sales, inventory, and MongoDB persistence)
@@ -49,6 +51,8 @@ export interface ICommercialBook {
 }
 
 // Cart Item Type (supports both commercial books and demo Gutendex books)
+export type BookSource = 'gutendex' | 'store';
+
 export interface CartItem {
   bookId: string | number;
   isbn?: string;
@@ -59,9 +63,9 @@ export interface CartItem {
   qty: number;
   stock?: number;
   isCommercial: boolean;
+  source?: BookSource;
 }
 
-// Wishlist Item Type
 export interface WishlistItem {
   bookId: string | number;
   title: string;
@@ -70,6 +74,15 @@ export interface WishlistItem {
   price?: number;
   isCommercial: boolean;
   subjects?: string[];
+  source?: BookSource;
+}
+
+export interface RecentlyViewedItem {
+  bookId: string;
+  source: BookSource;
+  title: string;
+  author: string;
+  coverImage?: string;
 }
 
 // Order Types
@@ -107,7 +120,6 @@ export interface IOrder {
   shippingAddress: ShippingAddress;
   status: OrderStatus;
   paymentMethod: string;
-  queuePosition?: number;
   createdAt?: string;
 }
 
@@ -117,6 +129,8 @@ export interface IUser {
   name: string;
   email: string;
   password?: string;
+  googleId?: string;
+  authProvider?: 'local' | 'google';
   role: 'customer' | 'admin';
   createdAt?: string;
 }
@@ -130,5 +144,6 @@ export interface AuthState {
   } | null;
   token: string | null;
   isAuthenticated: boolean;
+  isGuest: boolean;
   loading: boolean;
 }

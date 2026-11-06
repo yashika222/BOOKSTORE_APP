@@ -8,7 +8,16 @@ import winston from 'winston';
 
 // Custom sanitizer format to prevent logging sensitive data
 const sanitizeSensitiveData = winston.format((info) => {
-  const sensitiveKeys = ['password', 'token', 'jwt', 'secret', 'authorization', 'cookie'];
+  const sensitiveKeys = [
+    'password',
+    'token',
+    'jwt',
+    'secret',
+    'authorization',
+    'cookie',
+    'otp',
+    'reset',
+  ];
 
   const sanitizeObj = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;

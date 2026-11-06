@@ -2,7 +2,7 @@ import mongoose, { Document, Model, Schema } from 'mongoose';
 
 export interface IOrderDocument extends Document {
   orderId: string;
-  userId?: mongoose.Types.ObjectId;
+  userId: string;
   userEmail: string;
   items: Array<{
     bookId: string;
@@ -27,7 +27,6 @@ export interface IOrderDocument extends Document {
   };
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: string;
-  queuePosition?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,9 +40,8 @@ const OrderSchema = new Schema<IOrderDocument>(
       index: true,
     },
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: false,
+      type: String,
+      required: true,
       index: true,
     },
     userEmail: {
@@ -95,10 +93,6 @@ const OrderSchema = new Schema<IOrderDocument>(
     paymentMethod: {
       type: String,
       default: 'simulated_card',
-    },
-    queuePosition: {
-      type: Number,
-      default: 1,
     },
   },
   {

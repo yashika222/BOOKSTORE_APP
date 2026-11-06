@@ -1,8 +1,16 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
+import connectToDatabase from '@/lib/mongodb';
+import User from '@/models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_development_secret_min_32_chars';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+  }
+  return secret;
+}
 
 export interface TokenPayload {
   userId: string;
@@ -30,7 +38,7 @@ export async function comparePassword(password: string, hashed: string): Promise
  * Sign JWT token for authenticated user session
  */
 export function signToken(payload: TokenPayload, expiresIn: jwt.SignOptions['expiresIn'] = '7d'): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, getJwtSecret(), { expiresIn } as jwt.SignOptions);
 }
 
 /**
@@ -38,7 +46,7 @@ export function signToken(payload: TokenPayload, expiresIn: jwt.SignOptions['exp
  */
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch {
     return null;
   }
@@ -64,6 +72,32 @@ export function getUserFromRequest(request: NextRequest): TokenPayload | null {
   }
 
   return null;
+}
+
+export async function getCurrentUserFromRequest(
+  request: NextRequest
+): Promise<TokenPayload | null> {
+  const session = getUserFromRequest(request);
+  if (!session) return null;
+
+  try {
+    await connectToDatabase();
+    const user = await User.findById(session.userId).select('_id email name role');
+    if (!user) {
+      // Return verified JWT session in fallback/demo mode
+      return session;
+    }
+
+    return {
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
+  } catch {
+    // If DB is offline, return verified JWT session
+    return session;
+  }
 }
 
 /**

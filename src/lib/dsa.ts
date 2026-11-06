@@ -2,8 +2,8 @@
  * Practical JavaScript & Data Structures Demonstration Module
  * 
  * This module demonstrates key Computer Science and JavaScript concepts
- * directly applied to the Bookstore domain without unnecessary over-engineering.
- * Used for viva explanations, code demonstrations, and real app logic.
+ * used by the bookstore where appropriate. OrderQueue is an isolated example
+ * and is not connected to persisted order processing.
  */
 
 import { CartItem, ICommercialBook, WishlistItem } from "@/types";
@@ -161,6 +161,43 @@ export class CartUndoStack<T> {
   }
 }
 
+/**
+ * Stack pagination:
+ * each Next click pushes the newly fetched page (20 books) onto the stack.
+ * Previous pops back to the last page without refetching it.
+ */
+export class PaginationStack<T> {
+  private pages: T[][] = [];
+
+  push(page: T[]): void {
+    this.pages.push(page);
+  }
+
+  pop(): T[] | undefined {
+    if (this.pages.length <= 1) {
+      return this.peek();
+    }
+    this.pages.pop();
+    return this.peek();
+  }
+
+  peek(): T[] {
+    return this.pages[this.pages.length - 1] ?? [];
+  }
+
+  depth(): number {
+    return this.pages.length;
+  }
+
+  reset(firstPage: T[] = []): void {
+    this.pages = firstPage.length > 0 ? [firstPage] : [];
+  }
+
+  isEmpty(): boolean {
+    return this.pages.length === 0;
+  }
+}
+
 // ==========================================
 // 5. Queue (FIFO - First In, First Out)
 // ==========================================
@@ -214,9 +251,6 @@ export class OrderQueue {
     return [...this.queue];
   }
 }
-
-// Global in-memory instance for demo order queue
-export const globalOrderQueue = new OrderQueue();
 
 // ==========================================
 // 6. Tree: Category Hierarchy Navigation

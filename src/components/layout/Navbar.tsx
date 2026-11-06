@@ -18,7 +18,6 @@ import {
   ShoppingCartOutlined,
   HeartOutlined,
   BookOutlined,
-  UserOutlined,
   MenuOutlined,
   SearchOutlined,
   DashboardOutlined,
@@ -39,7 +38,7 @@ export default function Navbar() {
 
   const cartItems = useAppSelector((state) => state.cart.items);
   const wishlistItems = useAppSelector((state) => state.wishlist.items);
-  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+  const { user, isAuthenticated, isGuest, loading: authLoading } = useAppSelector((state) => state.auth);
 
   // Calculate total cart items using reduce()
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
@@ -56,12 +55,11 @@ export default function Navbar() {
     try {
       await api.post('/api/auth/logout');
       dispatch(logout());
+      sessionStorage.removeItem('bookstore_guest_mode');
       message.success('Logged out successfully');
       router.push('/');
-    } catch {
-      dispatch(logout());
-      message.info('Logged out');
-      router.push('/');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Unable to log out. Please try again.');
     }
   };
 
@@ -82,6 +80,11 @@ export default function Navbar() {
       disabled: true,
     },
     { type: 'divider' },
+    {
+      key: 'account',
+      icon: <BookOutlined />,
+      label: <Link href="/account">My Account</Link>,
+    },
     {
       key: 'orders',
       icon: <FileTextOutlined />,
@@ -119,7 +122,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 transition-all shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 text-gray-900 group">
+        <Link href={isAuthenticated || isGuest ? '/home' : '/'} className="flex items-center gap-2.5 text-gray-900 group">
           <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform">
             <BookOutlined />
           </div>
@@ -149,9 +152,9 @@ export default function Navbar() {
         {/* Desktop Navigation Links */}
         <nav className="hidden lg:flex items-center gap-6">
           <Link
-            href="/"
+            href="/home"
             className={`text-sm font-medium transition-colors hover:text-violet-600 ${
-              pathname === '/' ? 'text-violet-600 font-semibold' : 'text-gray-600'
+              pathname === '/home' ? 'text-violet-600 font-semibold' : 'text-gray-600'
             }`}
           >
             Home
@@ -164,23 +167,17 @@ export default function Navbar() {
           >
             Catalog
           </Link>
-          <Link
-            href="/orders"
-            className={`text-sm font-medium transition-colors hover:text-violet-600 ${
-              pathname === '/orders' ? 'text-violet-600 font-semibold' : 'text-gray-600'
-            }`}
-          >
-            Orders
-          </Link>
-          <Link
-            href="/docs"
-            className={`text-sm font-medium transition-colors hover:text-violet-600 ${
-              pathname === '/docs' ? 'text-violet-600 font-semibold' : 'text-gray-600'
-            }`}
-          >
-            API Docs
-          </Link>
-          {user?.role === 'admin' && (
+          {isAuthenticated && (
+            <Link
+              href="/orders"
+              className={`text-sm font-medium transition-colors hover:text-violet-600 ${
+                pathname === '/orders' ? 'text-violet-600 font-semibold' : 'text-gray-600'
+              }`}
+            >
+              Orders
+            </Link>
+          )}
+          {isAuthenticated && user?.role === 'admin' && (
             <Link
               href="/admin"
               className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border transition-colors ${
@@ -196,10 +193,10 @@ export default function Navbar() {
 
         {/* Actions (Wishlist, Cart, User) */}
         <div className="flex items-center gap-3">
-          {/* Wishlist Icon */}
           <Link href="/wishlist">
             <Button
               type="text"
+              aria-label="Wishlist"
               icon={
                 <Badge count={wishlistItems.length} overflowCount={99} size="small">
                   <HeartOutlined className="text-xl text-gray-700 hover:text-red-500 transition-colors" />
@@ -208,8 +205,6 @@ export default function Navbar() {
               className="flex items-center justify-center p-2 rounded-lg"
             />
           </Link>
-
-          {/* Cart Icon */}
           <Link href="/cart">
             <Button
               type="primary"
@@ -235,7 +230,7 @@ export default function Navbar() {
                 </span>
               </Button>
             </Dropdown>
-          ) : (
+          ) : !authLoading ? (
             <Space className="hidden sm:flex">
               <Link href="/login">
                 <Button type="text" className="text-sm font-medium">
@@ -248,7 +243,7 @@ export default function Navbar() {
                 </Button>
               </Link>
             </Space>
-          )}
+          ) : null}
 
           {/* Mobile Menu Hamburger */}
           <Button
@@ -284,7 +279,7 @@ export default function Navbar() {
 
           <div className="flex flex-col gap-2 font-medium">
             <Link
-              href="/"
+              href="/home"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800"
             >
@@ -298,14 +293,6 @@ export default function Navbar() {
               Book Catalog (Infinite Scroll)
             </Link>
             <Link
-              href="/cart"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800 flex justify-between"
-            >
-              <span>Shopping Cart</span>
-              <Badge count={totalCartCount} />
-            </Link>
-            <Link
               href="/wishlist"
               onClick={() => setMobileMenuOpen(false)}
               className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800 flex justify-between"
@@ -314,20 +301,32 @@ export default function Navbar() {
               <Badge count={wishlistItems.length} />
             </Link>
             <Link
-              href="/orders"
+              href="/cart"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800"
+              className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800 flex justify-between"
             >
-              Order History
+              <span>Shopping Cart</span>
+              <Badge count={totalCartCount} />
             </Link>
-            <Link
-              href="/docs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800"
-            >
-              API Documentation
-            </Link>
-            {user?.role === 'admin' && (
+            {isAuthenticated && (
+              <>
+                <Link
+                  href="/orders"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800"
+                >
+                  Order History
+                </Link>
+                <Link
+                  href="/account"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-800"
+                >
+                  My Account
+                </Link>
+              </>
+            )}
+            {isAuthenticated && user?.role === 'admin' && (
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
@@ -348,7 +347,7 @@ export default function Navbar() {
                   Log Out
                 </Button>
               </div>
-            ) : (
+            ) : !authLoading ? (
               <div className="space-y-2">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="block">
                   <Button type="primary" block className="bg-violet-600">
@@ -359,7 +358,7 @@ export default function Navbar() {
                   <Button block>Create Account</Button>
                 </Link>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </Drawer>

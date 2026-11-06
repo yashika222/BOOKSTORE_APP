@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "PageTurner Bookstore API Collection",
-    "description": "Postman Collection for testing PageTurner Bookstore Next.js Route Handlers.",
+    "description": "Postman requests for PageTurner Bookstore Next.js Route Handlers. Registration creates an account, admin writes modify MongoDB, and order creation decrements stock. Use a test database and existing book IDs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -21,13 +21,13 @@
           }
         },
         {
-          "name": "Login Admin",
+          "name": "Login with Account",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@bookstore.com\",\n  \"password\": \"Admin@123456\"\n}"
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
           }
@@ -59,7 +59,7 @@
           }
         },
         {
-          "name": "Get Book by ISBN (O(1) Hash)",
+          "name": "Get Book by ISBN",
           "request": {
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/api/books/978-0-7352-1129-2", "host": ["{{baseUrl}}"], "path": ["api", "books", "978-0-7352-1129-2"] }
@@ -83,13 +83,13 @@
       "name": "Orders",
       "item": [
         {
-          "name": "Place Simulated Order",
+          "name": "Place Demo Order (decrements inventory)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"bookId\": \"comm-1\",\n      \"title\": \"Atomic Habits\",\n      \"author\": \"James Clear\",\n      \"price\": 18.5,\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"fullName\": \"Alice Reader\",\n    \"email\": \"alice@example.com\",\n    \"phone\": \"+91 9876543210\",\n    \"addressLine\": \"123 Park Lane\",\n    \"city\": \"Delhi\",\n    \"postalCode\": \"110001\",\n    \"country\": \"India\"\n  },\n  \"subtotal\": 18.5,\n  \"shippingFee\": 4.99,\n  \"total\": 23.49\n}"
+              "raw": "{\n  \"requestId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"items\": [\n    {\n      \"bookId\": \"{{bookId}}\",\n      \"qty\": 1,\n      \"isCommercial\": true\n    }\n  ],\n  \"shippingAddress\": {\n    \"fullName\": \"Alice Reader\",\n    \"email\": \"alice@example.com\",\n    \"phone\": \"+91 9876543210\",\n    \"addressLine\": \"123 Park Lane\",\n    \"city\": \"Delhi\",\n    \"postalCode\": \"110001\",\n    \"country\": \"India\"\n  },\n  \"paymentMethod\": \"simulated_card\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"] }
           }
@@ -108,6 +108,18 @@
     {
       "key": "baseUrl",
       "value": "http://localhost:3000"
+    },
+    {
+      "key": "email",
+      "value": "reader@example.com"
+    },
+    {
+      "key": "password",
+      "value": "replace-with-test-account-password"
+    },
+    {
+      "key": "bookId",
+      "value": "replace-with-existing-book-id"
     }
   ]
 }

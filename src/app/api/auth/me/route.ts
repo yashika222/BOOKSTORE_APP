@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserFromRequest } from '@/lib/auth';
-import connectToDatabase from '@/lib/mongodb';
-import User from '@/models/User';
+import { getCurrentUserFromRequest } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = getUserFromRequest(request);
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, user: null },
-        { status: 200 }
-      );
-    }
-
-    await connectToDatabase();
-    const user = await User.findById(session.userId).select('-password');
-
+    const user = await getCurrentUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
         { success: false, user: null },
@@ -29,16 +17,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        id: user._id.toString(),
+        id: user.userId,
         name: user.name,
         email: user.email,
         role: user.role,
       },
     });
-  } catch {
+  } catch (error) {
+    logger.error(`Auth session lookup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(
-      { success: false, user: null },
-      { status: 200 }
+      { success: false, user: null, message: 'Unable to verify the current session' },
+      { status: 500 }
     );
   }
 }

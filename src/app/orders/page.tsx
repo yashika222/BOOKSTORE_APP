@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Tag, Spin, Empty, Button, Card, Divider } from 'antd';
+import { Alert, Tag, Spin, Empty, Button, Card, Divider } from 'antd';
 import {
   FileTextOutlined,
   ShoppingOutlined,
@@ -14,6 +14,7 @@ import {
 import { useAppSelector } from '@/store/hooks';
 import { IOrder } from '@/types';
 import api from '@/lib/axios';
+import BookCoverImage from '@/components/books/BookCoverImage';
 
 export default function OrdersPage() {
   const { user, isAuthenticated, loading: authLoading } = useAppSelector(
@@ -22,6 +23,7 @@ export default function OrdersPage() {
 
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -31,10 +33,14 @@ export default function OrdersPage() {
           .then((res) => {
             if (res.data?.success && res.data?.data) {
               setOrders(res.data.data);
+            } else {
+              throw new Error(res.data?.message || 'Unable to load your order history.');
             }
           })
-          .catch(() => {
-            // Error handling
+          .catch((err: unknown) => {
+            setError(
+              err instanceof Error ? err.message : 'Unable to load your order history.'
+            );
           })
           .finally(() => {
             setLoading(false);
@@ -68,7 +74,7 @@ export default function OrdersPage() {
       default:
         return (
           <Tag color="purple" icon={<ClockCircleOutlined />}>
-            Order Placed (Queued)
+            Order Placed
           </Tag>
         );
     }
@@ -121,7 +127,7 @@ export default function OrdersPage() {
             Order History
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Tracking orders for <b className="text-gray-800">{user?.email}</b> (persisted in MongoDB).
+            Orders placed with <b className="text-gray-800">{user?.email}</b>.
           </p>
         </div>
         <Link href="/books">
@@ -131,7 +137,44 @@ export default function OrdersPage() {
         </Link>
       </div>
 
-      {orders.length === 0 ? (
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          message="Order history unavailable"
+          description={error}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                void api
+                  .get('/api/orders')
+                  .then((res) => {
+                    if (res.data?.success && Array.isArray(res.data?.data)) {
+                      setOrders(res.data.data);
+                    } else {
+                      throw new Error(res.data?.message || 'Unable to load your order history.');
+                    }
+                  })
+                  .catch((err: unknown) => {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : 'Unable to load your order history.'
+                    );
+                  })
+                  .finally(() => setLoading(false));
+              }}
+            >
+              Retry
+            </Button>
+          }
+        />
+      )}
+
+      {!error && orders.length === 0 ? (
         <div className="bg-white rounded-3xl p-16 border border-gray-200/80 shadow-sm text-center">
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -141,7 +184,7 @@ export default function OrdersPage() {
                   No orders found in your account
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Once you place a simulated order through our checkout, it will be saved here in MongoDB.
+                  Your completed orders will appear here.
                 </p>
               </div>
             }
@@ -153,7 +196,7 @@ export default function OrdersPage() {
             </Link>
           </Empty>
         </div>
-      ) : (
+      ) : !error ? (
         <div className="space-y-6">
           {orders.map((order) => (
             <Card
@@ -188,12 +231,12 @@ export default function OrdersPage() {
                 {order.items.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3 text-sm">
                     <div className="w-12 h-16 bg-stone-100 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-200">
-                      {item.coverImage ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={item.coverImage} alt={item.title} className="w-full h-full object-contain" />
-                      ) : (
-                        <FileTextOutlined className="text-gray-400 text-lg" />
-                      )}
+                      <BookCoverImage
+                        src={item.coverImage}
+                        title={item.title}
+                        author={item.author}
+                        className="h-full w-full object-contain"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-gray-900 truncate">{item.title}</div>
@@ -215,16 +258,11 @@ export default function OrdersPage() {
                 <div>
                   Delivering to: <b className="text-gray-700">{order.shippingAddress.fullName}</b>, {order.shippingAddress.addressLine}, {order.shippingAddress.city} ({order.shippingAddress.postalCode})
                 </div>
-                {order.queuePosition !== undefined && (
-                  <span className="font-mono bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
-                    Queue Position #{order.queuePosition}
-                  </span>
-                )}
               </div>
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

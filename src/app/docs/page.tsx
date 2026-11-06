@@ -9,8 +9,7 @@ import {
   Badge,
   Typography,
   message,
-  Input,
-  Spin,
+  Alert,
 } from 'antd';
 import {
   DownloadOutlined,
@@ -60,24 +59,24 @@ const ENDPOINTS: Record<string, ApiEndpoint[]> = {
       description: 'Validates credentials against MongoDB and sets a secure HTTP-only cookie.',
       authRequired: false,
       sampleBody: {
-        email: 'admin@bookstore.com',
-        password: 'Admin@123456',
+        email: 'reader@example.com',
+        password: 'your-password',
       },
       defaultResponse: {
         success: true,
         message: 'Logged in successfully',
-        user: { id: '6523...', name: 'Store Manager', email: 'admin@bookstore.com', role: 'admin' },
+        user: { id: 'user-id', name: 'Reader Name', email: 'reader@example.com', role: 'customer' },
       },
     },
     {
       method: 'GET',
       path: '/api/auth/me',
       summary: 'Get current user session',
-      description: 'Extracts session token from HTTP-only cookie or Authorization header.',
-      authRequired: true,
+      description: 'Returns the current user when authenticated, or user:null when no valid session exists.',
+      authRequired: false,
       defaultResponse: {
         success: true,
-        user: { id: '6523...', name: 'Store Manager', email: 'admin@bookstore.com', role: 'admin' },
+        user: { id: 'user-id', name: 'Reader Name', email: 'reader@example.com', role: 'customer' },
       },
     },
     {
@@ -97,7 +96,7 @@ const ENDPOINTS: Record<string, ApiEndpoint[]> = {
       method: 'GET',
       path: '/api/books',
       summary: 'Get commercial book inventory',
-      description: 'Retrieves all commercial bookstore items from MongoDB with optional search and genre filters.',
+      description: 'Reads only persisted commercial inventory from MongoDB. Database failures return an error; no sample inventory is substituted.',
       authRequired: false,
       defaultResponse: {
         success: true,
@@ -153,21 +152,19 @@ const ENDPOINTS: Record<string, ApiEndpoint[]> = {
     {
       method: 'POST',
       path: '/api/orders',
-      summary: 'Create order and enqueue in FIFO queue',
-      description: 'Simulates checkout by saving order in MongoDB and placing order into the in-memory fulfillment Queue.',
-      authRequired: false,
+      summary: 'Create an authenticated order',
+      description: 'Creates an order using current MongoDB inventory and pricing. This is a demo checkout; no payment is processed.',
+      authRequired: true,
       sampleBody: {
-        items: [{ bookId: 'comm-1', title: 'Atomic Habits', author: 'James Clear', price: 18.5, quantity: 1 }],
+        requestId: '550e8400-e29b-41d4-a716-446655440000',
+        items: [{ bookId: 'replace-with-an-existing-book-id', qty: 1, isCommercial: true }],
         shippingAddress: { fullName: 'John Doe', email: 'john@example.com', phone: '9876543210', addressLine: '123 Main St', city: 'Delhi', postalCode: '110001' },
-        subtotal: 18.5,
-        shippingFee: 4.99,
-        total: 23.49,
+        paymentMethod: 'simulated_card',
       },
       defaultResponse: {
         success: true,
-        message: 'Order created successfully and entered fulfillment queue.',
-        orderId: 'ORD-ABC12-4012',
-        queuePosition: 1,
+        message: 'Order created successfully.',
+        order: { orderId: 'ORD-example', status: 'pending', items: [] },
       },
     },
   ],
@@ -226,6 +223,12 @@ export default function ApiDocsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <Alert
+        type="warning"
+        showIcon
+        message="Live requests can change data"
+        description="Try Request sends requests to this application. Registration creates an account, admin writes modify MongoDB, and order creation decrements stock. Use a test database and existing book IDs."
+      />
       {/* Header */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

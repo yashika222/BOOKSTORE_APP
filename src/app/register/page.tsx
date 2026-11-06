@@ -9,11 +9,13 @@ import {
   MailOutlined,
   LockOutlined,
   BookOutlined,
-  SafetyCertificateOutlined,
+  CompassOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch } from '@/store/hooks';
-import { setCredentials } from '@/store/authSlice';
+import { setCredentials, setGuestMode } from '@/store/authSlice';
 import api from '@/lib/axios';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import { PASSWORD_HINT } from '@/lib/passwordPolicy';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,7 +25,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: { name: string; email: string; password: string }) => {
     setLoading(true);
     setErrorMessage(null);
 
@@ -37,7 +39,15 @@ export default function RegisterPage() {
       if (res.data?.success && res.data?.user) {
         dispatch(setCredentials({ user: res.data.user }));
         message.success('Account created successfully! Welcome to PageTurner.');
-        router.push('/books');
+        const requestedPath = new URLSearchParams(window.location.search).get('next');
+        const safePath =
+          requestedPath?.startsWith('/') &&
+          !requestedPath.startsWith('//') &&
+          requestedPath !== '/login' &&
+          requestedPath !== '/register'
+            ? requestedPath
+            : '/home';
+        router.push(safePath);
       } else {
         throw new Error(res.data?.message || 'Registration failed');
       }
@@ -46,6 +56,12 @@ export default function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const continueAsGuest = () => {
+    sessionStorage.setItem('bookstore_guest_mode', 'true');
+    dispatch(setGuestMode(true));
+    router.push('/home');
   };
 
   return (
@@ -58,8 +74,8 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             Create an Account
           </h1>
-          <p className="text-xs text-gray-500">
-            Join PageTurner to save wishlists, view order queues, and buy books.
+          <p className="text-sm text-gray-500">
+            Create an account to save books and keep track of your orders.
           </p>
         </div>
 
@@ -114,9 +130,14 @@ export default function RegisterPage() {
           <Form.Item
             name="password"
             label="Password"
+            extra={PASSWORD_HINT}
             rules={[
               { required: true, message: 'Please create a password' },
-              { min: 6, message: 'Password must be at least 6 characters' },
+              { min: 8, message: PASSWORD_HINT },
+              {
+                pattern: /^(?=.*[A-Za-z])(?=.*\d).{8,72}$/,
+                message: PASSWORD_HINT,
+              },
             ]}
           >
             <Input.Password
@@ -161,6 +182,12 @@ export default function RegisterPage() {
           </Button>
         </Form>
 
+        <Divider plain className="my-2 text-xs text-gray-400">
+          or
+        </Divider>
+
+        <GoogleSignInButton />
+
         <Divider className="my-2" />
 
         <div className="text-center text-xs text-gray-600">
@@ -170,10 +197,9 @@ export default function RegisterPage() {
           </Link>
         </div>
 
-        <div className="text-[11px] text-gray-400 text-center flex items-center justify-center gap-1">
-          <SafetyCertificateOutlined className="text-emerald-500" />
-          <span>Passwords are salted & hashed using bcrypt before MongoDB storage</span>
-        </div>
+        <Button type="link" icon={<CompassOutlined />} onClick={continueAsGuest} block>
+          Continue as Guest
+        </Button>
       </div>
     </div>
   );

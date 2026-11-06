@@ -8,7 +8,7 @@ import Footer from '@/components/layout/Footer';
 export const metadata: Metadata = {
   title: 'PageTurner Bookstore | Discover, Read & Order Books',
   description:
-    'Full-stack Bookstore application built with React, Next.js App Router, TypeScript, Ant Design, Redux Toolkit, and Gutendex Infinite Scroll API.',
+    'Discover your next favourite read at PageTurner Bookstore, with new favourites and timeless classics to explore.',
 };
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col bg-[#fafaf9]">
+      <body className="min-h-screen flex flex-col bg-[#fafafa]">
         <AntdRegistryWrapper>
           <StoreProvider>
             <Navbar />

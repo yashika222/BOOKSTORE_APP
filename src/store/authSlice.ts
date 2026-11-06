@@ -5,6 +5,7 @@ const initialState: AuthState = {
   user: null,
   token: null,
   isAuthenticated: false,
+  isGuest: false,
   loading: true,
 };
 
@@ -22,12 +23,21 @@ export const authSlice = createSlice({
       state.user = action.payload.user;
       state.token = action.payload.token || null;
       state.isAuthenticated = true;
+      state.isGuest = false;
       state.loading = false;
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
+      state.isGuest = false;
+      state.loading = false;
+    },
+    setGuestMode: (state, action: PayloadAction<boolean>) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isGuest = action.payload;
       state.loading = false;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
@@ -36,6 +46,6 @@ export const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, logout, setLoading } = authSlice.actions;
+export const { setCredentials, logout, setGuestMode, setLoading } = authSlice.actions;
 
 export default authSlice.reducer;

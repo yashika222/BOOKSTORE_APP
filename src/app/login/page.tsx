@@ -1,28 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Form, Input, Button, Alert, Divider, message } from 'antd';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Form, Input, Button, Alert, Divider, message, Spin } from 'antd';
 import {
   UserOutlined,
   LockOutlined,
   BookOutlined,
+  CompassOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch } from '@/store/hooks';
-import { setCredentials } from '@/store/authSlice';
+import { setCredentials, setGuestMode } from '@/store/authSlice';
 import api from '@/lib/axios';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
-export default function LoginPage() {
+const GOOGLE_ERRORS: Record<string, string> = {
+  google_not_configured: 'Google sign-in is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local.',
+  google_denied: 'Google sign-in was cancelled or could not be verified.',
+  google_failed: 'Google sign-in failed. Please try again.',
+};
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form] = Form.useForm();
   const dispatch = useAppDispatch();
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const nextPath = searchParams.get('next') || undefined;
 
-  const onFinish = async (values: any) => {
+  useEffect(() => {
+    const googleError = searchParams.get('error');
+    if (googleError && GOOGLE_ERRORS[googleError]) {
+      setErrorMessage(GOOGLE_ERRORS[googleError]);
+    }
+  }, [searchParams]);
+
+  const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
     setErrorMessage(null);
 
@@ -36,11 +53,15 @@ export default function LoginPage() {
         dispatch(setCredentials({ user: res.data.user }));
         message.success(`Welcome back, ${res.data.user.name}!`);
 
-        if (res.data.user.role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/books');
-        }
+        const requestedPath = nextPath || new URLSearchParams(window.location.search).get('next');
+        const safePath =
+          requestedPath?.startsWith('/') &&
+          !requestedPath.startsWith('//') &&
+          requestedPath !== '/login' &&
+          requestedPath !== '/register'
+            ? requestedPath
+            : null;
+        router.push(safePath || (res.data.user.role === 'admin' ? '/admin' : '/home'));
       } else {
         throw new Error(res.data?.message || 'Login failed');
       }
@@ -67,6 +88,12 @@ export default function LoginPage() {
     setErrorMessage(null);
   };
 
+  const continueAsGuest = () => {
+    sessionStorage.setItem('bookstore_guest_mode', 'true');
+    dispatch(setGuestMode(true));
+    router.push('/home');
+  };
+
   return (
     <div className="max-w-md mx-auto px-4 py-16">
       <div className="bg-white rounded-3xl p-8 border border-gray-200/80 shadow-md space-y-6">
@@ -77,9 +104,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             Sign In to PageTurner
           </h1>
-          <p className="text-xs text-gray-500">
-            Secure JWT cookie authentication with bcrypt password encryption.
-          </p>
+          <p className="text-sm text-gray-500">Sign in to save books and manage your orders.</p>
         </div>
 
         {errorMessage && (
@@ -110,14 +135,24 @@ export default function LoginPage() {
           >
             <Input
               prefix={<UserOutlined className="text-gray-400" />}
-              placeholder="admin@bookstore.com"
+              placeholder="you@example.com"
               size="large"
             />
           </Form.Item>
 
           <Form.Item
             name="password"
-            label="Password"
+            label={
+              <div className="flex w-full justify-between items-center">
+                <span>Password</span>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-semibold text-violet-600 hover:text-violet-700 hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+            }
             rules={[{ required: true, message: 'Please enter your password' }]}
           >
             <Input.Password
@@ -139,23 +174,29 @@ export default function LoginPage() {
           </Button>
         </Form>
 
+        <Divider plain className="my-2 text-xs text-gray-400">
+          or
+        </Divider>
+
+        <GoogleSignInButton nextPath={nextPath} />
+
         {/* Demo Viva Fill Buttons */}
-        <div className="pt-2">
+        <div className="pt-1">
           <div className="text-center text-xs text-gray-400 uppercase tracking-wider mb-2 font-semibold">
-            Quick Viva Demo Accounts
+            Quick Demo / Viva Accounts
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button
-              size="small"
+              size="middle"
               onClick={fillAdminCredentials}
-              className="text-xs bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+              className="text-xs bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 font-medium"
             >
               Fill Admin Account
             </Button>
             <Button
-              size="small"
+              size="middle"
               onClick={fillCustomerCredentials}
-              className="text-xs bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
+              className="text-xs bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100 font-medium"
             >
               Fill Customer Account
             </Button>
@@ -171,11 +212,29 @@ export default function LoginPage() {
           </Link>
         </div>
 
+        <Button type="link" icon={<CompassOutlined />} onClick={continueAsGuest} block>
+          Continue as Guest
+        </Button>
+
         <div className="text-[11px] text-gray-400 text-center flex items-center justify-center gap-1">
           <SafetyCertificateOutlined className="text-emerald-500" />
-          <span>HTTP-only JWT cookies prevent XSS credential theft</span>
+          <span>Secure HTTP-only JWT session authentication</span>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-md mx-auto px-4 py-16 text-center">
+          <Spin size="large" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

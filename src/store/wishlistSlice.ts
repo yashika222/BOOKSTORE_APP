@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { WishlistItem } from '@/types';
+import { logout, setCredentials, setGuestMode } from './authSlice';
 
 interface WishlistState {
   items: WishlistItem[];
@@ -49,6 +50,18 @@ export const wishlistSlice = createSlice({
     clearWishlist: (state) => {
       state.items = [];
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout, (state) => {
+        state.items = [];
+      })
+      .addCase(setCredentials, (state) => {
+        state.items = [];
+      })
+      .addCase(setGuestMode, (state) => {
+        state.items = [];
+      });
   },
 });
 

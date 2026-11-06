@@ -15,10 +15,9 @@ export default function CategoryTree({
   selectedCategory,
   onSelectCategory,
 }: CategoryTreeProps) {
-  // Convert our category tree structure to Ant Design DataNode[] format
   const treeData: DataNode[] = [
     {
-      title: <span className="font-semibold text-gray-800">All Categories</span>,
+      title: <span className="font-semibold text-gray-800">All categories</span>,
       key: 'all',
       icon: <ReadOutlined />,
     },
@@ -35,13 +34,10 @@ export default function CategoryTree({
   ];
 
   return (
-    <div className="bg-white p-3 rounded-xl border border-gray-200/80 shadow-sm">
-      <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 border-b border-gray-100 pb-2">
         <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-          Category Hierarchy
-        </span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 font-mono font-semibold">
-          Tree (DSA)
+          Browse by genre
         </span>
       </div>
 
@@ -55,7 +51,7 @@ export default function CategoryTree({
           }
         }}
         treeData={treeData}
-        className="text-sm bg-transparent"
+        className="bg-transparent text-sm"
       />
     </div>
   );
