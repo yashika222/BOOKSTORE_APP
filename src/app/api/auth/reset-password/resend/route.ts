@@ -9,10 +9,10 @@ import logger from '@/lib/logger';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const token = typeof body?.token === 'string' ? body.token.trim() : '';
-    if (!token) {
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
-        { success: false, message: 'A valid reset link is required.' },
+        { success: false, message: 'A valid email address is required.' },
         { status: 400 }
       );
     }
@@ -24,42 +24,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const limited = consumeRateLimit(`resend:${sha256(token)}`, 3, 15 * 60 * 1000);
-    if (!limited.allowed) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const limit = consumeRateLimit(`resend-reset:${ip}:${email}`, 3, 15 * 60 * 1000);
+    if (!limit.allowed) {
       return NextResponse.json(
-        { success: false, message: 'Please wait before requesting another verification code.' },
+        { success: false, message: 'Too many requests. Please try again later.' },
         { status: 429 }
       );
     }
 
     await connectToDatabase();
-    const user = await User.findOne({
-      passwordResetTokenHash: sha256(token),
-      passwordResetExpires: { $gt: new Date() },
-    }).select('email passwordResetExpires +passwordResetOtpHash +passwordResetOtpExpires');
-
+    const user = await User.findOne({ email }).select(
+      '+passwordResetOtpLastSentAt +passwordResetOtpHash +passwordResetOtpExpires +passwordResetOtpAttempts'
+    );
     if (!user) {
+      return NextResponse.json({
+        success: true,
+        message: 'If that email is registered, a new password reset code has been sent.',
+      });
+    }
+
+    if (
+      user.passwordResetOtpLastSentAt &&
+      Date.now() - user.passwordResetOtpLastSentAt.getTime() < 60 * 1000
+    ) {
       return NextResponse.json(
-        { success: false, message: 'This reset link is invalid or has expired.' },
-        { status: 400 }
+        { success: false, message: 'Please wait 60 seconds before requesting another code.' },
+        { status: 429 }
       );
     }
 
     const otp = createOtp();
     user.passwordResetOtpHash = sha256(otp);
     user.passwordResetOtpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.passwordResetOtpAttempts = 0;
+    user.passwordResetOtpLastSentAt = new Date();
+    user.passwordResetSessionHash = undefined;
+    user.passwordResetSessionExpires = undefined;
     await user.save();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    const resetUrl = `${appUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
-    await sendPasswordResetEmail({ to: user.email, resetUrl, otp });
+    try {
+      await sendPasswordResetEmail({ to: user.email, otp });
+    } catch (mailError) {
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpires = undefined;
+      user.passwordResetOtpAttempts = 0;
+      await user.save();
+      throw mailError;
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'A new verification code has been sent if this reset link is still valid.',
+      message: 'If that email is registered, a new password reset code has been sent.',
     });
   } catch (error) {
-    logger.error(`OTP resend failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    logger.error(`Reset OTP resend failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(
       { success: false, message: 'Unable to send a new verification code right now.' },
       { status: 500 }

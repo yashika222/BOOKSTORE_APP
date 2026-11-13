@@ -5,6 +5,8 @@ import Book from '@/models/Book';
 import Order, { IOrderDocument } from '@/models/Order';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import logger from '@/lib/logger';
+import { queueEmail, sendOrderConfirmationEmail } from '@/lib/mail';
+import { shippingFeeFor } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,14 +102,13 @@ export async function POST(request: NextRequest) {
     for (const item of submittedItems) {
       if (
         !item ||
-        item.isCommercial !== true ||
         !isNonEmptyString(item.bookId) ||
         !Number.isInteger(item.qty) ||
         Number(item.qty) < 1 ||
         Number(item.qty) > 99
       ) {
         return NextResponse.json(
-          { success: false, message: 'Order items must be valid commercial books with quantities from 1 to 99.' },
+          { success: false, message: 'Order items must be valid books with quantities from 1 to 99.' },
           { status: 400 }
         );
       }
@@ -128,8 +129,7 @@ export async function POST(request: NextRequest) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId)
         ? body.requestId
         : crypto.randomUUID();
-    const paymentMethod =
-      body.paymentMethod === 'cash_on_delivery' ? 'cash_on_delivery' : 'simulated_card';
+    const paymentMethod = 'cash_on_delivery';
     const orderId = `ORD-${requestId.toUpperCase()}`;
     duplicateLookup = { orderId, userId: user.userId };
     let orderDocument: IOrderDocument | undefined;
@@ -153,7 +153,11 @@ export async function POST(request: NextRequest) {
       const isbns = Array.from(quantities.keys());
 
       const books = await Book.find({
-        $or: [{ _id: { $in: objectIds } }, { isbn: { $in: isbns } }],
+        $or: [
+          { _id: { $in: objectIds } },
+          { isbn: { $in: isbns } },
+          { sourceId: { $in: isbns } },
+        ],
       });
 
       if (books.length === quantities.size) {
@@ -163,10 +167,12 @@ export async function POST(request: NextRequest) {
         for (const [requestedKey, quantity] of Array.from(quantities.entries())) {
           const book = books.find(
             (candidate) =>
-              candidate._id.toString() === requestedKey || candidate.isbn === requestedKey
+              candidate._id.toString() === requestedKey ||
+              candidate.isbn === requestedKey ||
+              candidate.sourceId === requestedKey
           );
 
-          if (!book || book.stock < quantity) {
+          if (!book || typeof book.price !== 'number' || book.stock < quantity) {
             throw new Error(`STOCK_UNAVAILABLE:${requestedKey}`);
           }
 
@@ -181,13 +187,15 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        const shippingFee = subtotal > 35 || subtotal === 0 ? 0 : 4.99;
-        const total = Number((subtotal + shippingFee + subtotal * 0.05).toFixed(2));
+        const shippingFee = shippingFeeFor(subtotal);
+        const total = Number((subtotal + shippingFee).toFixed(2));
 
         for (const [requestedKey, quantity] of Array.from(quantities.entries())) {
           const book = books.find(
             (candidate) =>
-              candidate._id.toString() === requestedKey || candidate.isbn === requestedKey
+              candidate._id.toString() === requestedKey ||
+              candidate.isbn === requestedKey ||
+              candidate.sourceId === requestedKey
           );
           if (!book) throw new Error(`STOCK_UNAVAILABLE:${requestedKey}`);
           const updated = await Book.findOneAndUpdate(
@@ -247,6 +255,35 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info(`New order created: ${orderId} by ${user.email}`);
+    queueEmail(
+      () =>
+        sendOrderConfirmationEmail({
+          to: user.email,
+          name: user.name,
+          orderId: orderDocument.orderId,
+          items: orderDocument.items.map((item) => ({
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          subtotal: orderDocument.subtotal,
+          shippingFee: orderDocument.shippingFee,
+          total: orderDocument.total,
+          paymentMethod: orderDocument.paymentMethod,
+          status: orderDocument.status,
+          orderDate: orderDocument.createdAt || new Date(),
+          address: {
+            fullName: orderDocument.shippingAddress.fullName,
+            addressLine: orderDocument.shippingAddress.addressLine,
+            city: orderDocument.shippingAddress.city,
+            state: orderDocument.shippingAddress.state,
+            postalCode: orderDocument.shippingAddress.postalCode,
+            phone: orderDocument.shippingAddress.phone,
+            country: orderDocument.shippingAddress.country,
+          },
+        }),
+      'Order confirmation email'
+    );
 
     return NextResponse.json(
       {

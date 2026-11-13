@@ -6,12 +6,14 @@ import { AppStore, makeStore } from './index';
 import { setCartItems } from './cartSlice';
 import { setWishlistItems } from './wishlistSlice';
 import { logout, setCredentials, setGuestMode } from './authSlice';
+import { CartItem } from '@/types';
 import api from '@/lib/axios';
+import QueryProvider from '@/lib/queryClient';
 
 const GUEST_SESSION_KEY = 'bookstore_guest_mode';
 const LEGACY_CART_STORAGE_KEY = 'bookstore_cart_v1';
 const LEGACY_WISHLIST_STORAGE_KEY = 'bookstore_wishlist_v1';
-const LEGACY_GUEST_CART = 'bookstore_cart_v2_guest';
+const GUEST_CART_STORAGE_KEY = 'bookstore_cart_v2_guest';
 const LEGACY_GUEST_WISHLIST = 'bookstore_wishlist_v2_guest';
 
 const getUserStorageKeys = (userId: string) => ({
@@ -32,7 +34,9 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
 
     let active = true;
     let activeUserId: string | null = null;
+    let authInitialized = false;
     let hydratingUserData = false;
+    let persistTimer: number | undefined;
 
     const readStoredItems = <T,>(key: string): T[] => {
       try {
@@ -41,6 +45,29 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
       } catch {
         return [];
       }
+    };
+
+    const mergeCarts = <T extends { bookId: string | number; qty: number; stock?: number }>(
+      accountCart: T[],
+      guestCart: T[]
+    ): T[] => {
+      const merged = accountCart.map((item) => ({ ...item }));
+
+      for (const guestItem of guestCart) {
+        const existing = merged.find((item) => String(item.bookId) === String(guestItem.bookId));
+        if (!existing) {
+          merged.push({ ...guestItem });
+          continue;
+        }
+
+        const quantity = existing.qty + guestItem.qty;
+        existing.qty =
+          existing.stock !== undefined && existing.stock > 0
+            ? Math.min(quantity, existing.stock)
+            : quantity;
+      }
+
+      return merged;
     };
 
     const unsubscribe = store.subscribe(() => {
@@ -54,24 +81,52 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       if (!authenticatedUser) {
+        activeUserId = null;
+        if (authInitialized) {
+          try {
+            localStorage.setItem(
+              GUEST_CART_STORAGE_KEY,
+              JSON.stringify(store.getState().cart.items)
+            );
+          } catch {
+            // Private browsing or a full storage quota must not block shopping.
+          }
+        }
         return;
       }
 
       if (activeUserId !== authenticatedUser.id) {
         activeUserId = authenticatedUser.id;
         const keys = getUserStorageKeys(authenticatedUser.id);
-        const cart = readStoredItems<typeof state.cart.items[number]>(keys.cart);
+        const accountCart = readStoredItems<typeof state.cart.items[number]>(keys.cart);
+        const guestCart = readStoredItems<typeof state.cart.items[number]>(GUEST_CART_STORAGE_KEY);
+        const cart = mergeCarts(accountCart, guestCart);
         const wishlist = readStoredItems<typeof state.wishlist.items[number]>(keys.wishlist);
         hydratingUserData = true;
         store.dispatch(setCartItems(cart));
         store.dispatch(setWishlistItems(wishlist));
         hydratingUserData = false;
+        localStorage.removeItem(GUEST_CART_STORAGE_KEY);
       }
 
       try {
         const keys = getUserStorageKeys(authenticatedUser.id);
-        localStorage.setItem(keys.cart, JSON.stringify(store.getState().cart.items));
-        localStorage.setItem(keys.wishlist, JSON.stringify(store.getState().wishlist.items));
+        const latestCart = store.getState().cart.items;
+        const latestWishlist = store.getState().wishlist.items;
+        localStorage.setItem(keys.cart, JSON.stringify(latestCart));
+        localStorage.setItem(keys.wishlist, JSON.stringify(latestWishlist));
+        if (persistTimer) window.clearTimeout(persistTimer);
+        persistTimer = window.setTimeout(() => {
+          void api.post('/api/cart', {
+            items: latestCart.map((item) => ({
+              bookId: String(item.bookId),
+              qty: item.qty,
+            })),
+          });
+          void api.post('/api/wishlist', {
+            bookIds: latestWishlist.map((item) => String(item.bookId)),
+          });
+        }, 800);
       } catch {
         // Private browsing or a full storage quota must not block shopping.
       }
@@ -80,22 +135,35 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
     const initialize = async () => {
       localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
       localStorage.removeItem(LEGACY_WISHLIST_STORAGE_KEY);
-      localStorage.removeItem(LEGACY_GUEST_CART);
       localStorage.removeItem(LEGACY_GUEST_WISHLIST);
       const hadGuestSession = sessionStorage.getItem(GUEST_SESSION_KEY) === 'true';
+      const guestCart = readStoredItems<CartItem>(GUEST_CART_STORAGE_KEY);
 
       try {
         const response = await api.get('/api/auth/me');
         if (!active) return;
 
+        authInitialized = true;
         if (response.data?.success && response.data?.user) {
+          const currentCart = store.getState().cart.items;
+          if (currentCart.length > 0) {
+            localStorage.setItem(
+              GUEST_CART_STORAGE_KEY,
+              JSON.stringify(mergeCarts(guestCart, currentCart))
+            );
+          }
           store.dispatch(setCredentials({ user: response.data.user }));
         } else {
+          const currentCart = store.getState().cart.items;
           store.dispatch(hadGuestSession ? setGuestMode(true) : logout());
+          store.dispatch(setCartItems(mergeCarts(guestCart, currentCart)));
         }
       } catch {
         if (!active) return;
+        authInitialized = true;
+        const currentCart = store.getState().cart.items;
         store.dispatch(hadGuestSession ? setGuestMode(true) : logout());
+        store.dispatch(setCartItems(mergeCarts(guestCart, currentCart)));
       }
     };
 
@@ -103,9 +171,14 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      if (persistTimer) window.clearTimeout(persistTimer);
       unsubscribe();
     };
   }, []);
 
-  return <Provider store={storeRef.current}>{children}</Provider>;
+  return (
+    <Provider store={storeRef.current}>
+      <QueryProvider>{children}</QueryProvider>
+    </Provider>
+  );
 }

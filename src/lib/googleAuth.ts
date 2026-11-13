@@ -43,5 +43,5 @@ export function redirectWithGoogleError(requestUrl: string, code: string) {
 }
 
 export function readOAuthNextPath(value: string | undefined): string {
-  return getSafeInternalPath(value, '/home');
+  return getSafeInternalPath(value, '/');
 }

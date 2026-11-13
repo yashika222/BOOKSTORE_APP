@@ -17,7 +17,6 @@ import {
 import {
   ShoppingOutlined,
   SafetyCertificateOutlined,
-  CreditCardOutlined,
   HistoryOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -25,6 +24,7 @@ import { clearCart } from '@/store/cartSlice';
 import api from '@/lib/axios';
 import { IOrder } from '@/types';
 import BookCoverImage from '@/components/books/BookCoverImage';
+import { formatCurrency, shippingFeeFor } from '@/lib/currency';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -40,11 +40,20 @@ export default function CheckoutPage() {
 
   // Subtotal calculated with reduce()
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const shippingFee = subtotal > 35 || subtotal === 0 ? 0 : 4.99;
-  const estimatedTax = Number((subtotal * 0.05).toFixed(2));
-  const grandTotal = Number((subtotal + shippingFee + estimatedTax).toFixed(2));
+  const shippingFee = shippingFeeFor(subtotal);
+  const grandTotal = Number((subtotal + shippingFee).toFixed(2));
 
-  const handleCheckoutSubmit = async (values: any) => {
+  const handleCheckoutSubmit = async (values: {
+    fullName: string;
+    email: string;
+    phone: string;
+    addressLine: string;
+    city: string;
+    state?: string;
+    postalCode: string;
+    country?: string;
+    paymentMethod: string;
+  }) => {
     if (cartItems.length === 0) {
       message.error('Your cart is empty');
       return;
@@ -76,7 +85,7 @@ export default function CheckoutPage() {
         subtotal,
         shippingFee,
         total: grandTotal,
-        paymentMethod: values.paymentMethod || 'simulated_demo_payment',
+        paymentMethod: 'cash_on_delivery',
       };
 
       const response = await api.post('/api/orders', orderPayload);
@@ -115,7 +124,7 @@ export default function CheckoutPage() {
                   Order Reference: <b className="text-gray-900 font-mono">{completedOrder.orderId}</b>
                 </div>
                 <div>
-                  Your order has been saved to your PageTurner account.
+                  Your order has been saved to your BookStore account.
                 </div>
               </div>
             }
@@ -195,7 +204,7 @@ export default function CheckoutPage() {
             initialValues={{
               fullName: user?.name || '',
               email: user?.email || '',
-              paymentMethod: 'simulated_card',
+              paymentMethod: 'cash_on_delivery',
               country: 'India',
             }}
             onFinish={handleCheckoutSubmit}
@@ -275,8 +284,8 @@ export default function CheckoutPage() {
               </h2>
 
               <Alert
-                message="Demo payment notice"
-                description="This checkout is for demonstration only. No payment will be processed."
+                message="Cash on delivery"
+                description="Payment is collected when the order is delivered. No online payment gateway is integrated."
                 type="info"
                 showIcon
                 className="text-xs rounded-xl"
@@ -284,19 +293,10 @@ export default function CheckoutPage() {
 
               <Form.Item name="paymentMethod" className="pt-2">
                 <Radio.Group className="w-full space-y-2">
-                  <div className="p-3 rounded-xl border border-violet-200 bg-violet-50/50 flex items-center justify-between">
-                    <Radio value="simulated_card" defaultChecked>
-                      <span className="font-semibold text-sm text-gray-800">
-                        Card (demo only — no charge)
-                      </span>
-                    </Radio>
-                    <CreditCardOutlined className="text-violet-600 text-lg" />
-                  </div>
-
                   <div className="p-3 rounded-xl border border-gray-200 bg-white flex items-center justify-between">
                     <Radio value="cash_on_delivery">
                       <span className="font-semibold text-sm text-gray-800">
-                        Pay on Delivery
+                        Cash on Delivery
                       </span>
                     </Radio>
                     <SafetyCertificateOutlined className="text-emerald-600 text-lg" />
@@ -313,7 +313,7 @@ export default function CheckoutPage() {
               block
               className="bg-violet-600 hover:bg-violet-700 font-extrabold h-12 text-base shadow-md mt-4"
             >
-              Confirm & Place Order (${grandTotal.toFixed(2)})
+              Confirm & Place Order ({formatCurrency(grandTotal)})
             </Button>
           </Form>
         </div>
@@ -338,11 +338,11 @@ export default function CheckoutPage() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-gray-900 truncate">{item.title}</div>
                   <div className="text-xs text-gray-500">
-                    Qty: {item.qty} × ${item.price.toFixed(2)}
+                    Qty: {item.qty} × {formatCurrency(item.price)}
                   </div>
                 </div>
                 <div className="font-bold text-gray-800">
-                  ${(item.price * item.qty).toFixed(2)}
+                  {formatCurrency(item.price * item.qty)}
                 </div>
               </div>
             ))}
@@ -354,7 +354,7 @@ export default function CheckoutPage() {
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Items Subtotal</span>
-              <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
+              <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Delivery Fee</span>
@@ -362,18 +362,14 @@ export default function CheckoutPage() {
                 {shippingFee === 0 ? (
                   <span className="text-emerald-600 font-semibold">FREE</span>
                 ) : (
-                  `$${shippingFee.toFixed(2)}`
+                  formatCurrency(shippingFee)
                 )}
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Estimated Tax (5%)</span>
-              <span>${estimatedTax.toFixed(2)}</span>
             </div>
             <Divider className="my-2" />
             <div className="flex justify-between text-base font-extrabold text-gray-900">
               <span>Grand Total</span>
-              <span className="text-violet-700 text-xl">${grandTotal.toFixed(2)}</span>
+              <span className="text-violet-700 text-xl">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
         </div>

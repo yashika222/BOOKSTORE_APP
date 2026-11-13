@@ -1,90 +1,78 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
+export interface BookAuthor {
+  name: string;
+  birth_year?: number | null;
+  death_year?: number | null;
+}
+
 export interface IBookDocument extends Document {
-  isbn: string;
+  source: 'gutendex' | 'admin';
+  sourceId: string;
   title: string;
+  authors: BookAuthor[];
   author: string;
-  description: string;
-  price: number;
-  stock: number;
-  genre: string;
-  rating: number;
+  subjects: string[];
+  languages: string[];
   coverImage: string;
-  featured: boolean;
-  publishedYear: number;
+  formats: Record<string, string>;
+  downloadCount: number;
+  isbn?: string;
+  description: string;
+  publisher?: string;
+  price?: number;
+  originalPrice?: number;
+  stock: number;
+  rating?: number;
+  reviewCount?: number;
+  pricingSource: 'unset' | 'demo' | 'admin';
+  genre?: string;
+  category?: string;
+  featured?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const BookSchema = new Schema<IBookDocument>(
   {
-    isbn: {
-      type: String,
-      required: [true, 'ISBN is required'],
-      unique: true,
-      trim: true,
-      index: true, // O(1) fast lookup index
+    source: { type: String, enum: ['gutendex', 'admin'], default: 'gutendex', index: true },
+    sourceId: { type: String, required: true, unique: true, index: true },
+    title: { type: String, required: true, trim: true, maxlength: 500, index: true },
+    authors: {
+      type: [
+        {
+          name: { type: String, required: true },
+          birth_year: { type: Number, default: null },
+          death_year: { type: Number, default: null },
+        },
+      ],
+      default: [],
     },
-    title: {
-      type: String,
-      required: [true, 'Book title is required'],
-      trim: true,
-      maxlength: [200, 'Title cannot exceed 200 characters'],
-    },
-    author: {
-      type: String,
-      required: [true, 'Author name is required'],
-      trim: true,
-    },
-    description: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-    price: {
-      type: Number,
-      required: [true, 'Price is required'],
-      min: [0, 'Price cannot be negative'],
-    },
-    stock: {
-      type: Number,
-      required: [true, 'Stock count is required'],
-      min: [0, 'Stock cannot be negative'],
-      default: 10,
-    },
-    genre: {
-      type: String,
-      required: [true, 'Genre is required'],
-      trim: true,
-      index: true,
-    },
-    rating: {
-      type: Number,
-      default: 4.5,
-      min: [0, 'Rating cannot be less than 0'],
-      max: [5, 'Rating cannot exceed 5'],
-    },
-    coverImage: {
-      type: String,
-      default: '',
-    },
-    featured: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    publishedYear: {
-      type: Number,
-      default: 2024,
-    },
+    author: { type: String, default: 'Unknown Author', index: true },
+    subjects: { type: [String], default: [] },
+    languages: { type: [String], default: ['en'] },
+    coverImage: { type: String, default: '' },
+    formats: { type: Schema.Types.Mixed, default: {} },
+    downloadCount: { type: Number, default: 0, index: true },
+    isbn: { type: String, default: undefined, index: true, sparse: true },
+    description: { type: String, default: '' },
+    publisher: { type: String, default: '' },
+    price: { type: Number, min: 0 },
+    originalPrice: { type: Number, min: 0 },
+    stock: { type: Number, default: 0, min: 0 },
+    rating: { type: Number, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0, min: 0 },
+    pricingSource: { type: String, enum: ['unset', 'demo', 'admin'], default: 'unset' },
+    genre: { type: String, default: '', index: true },
+    category: { type: String, default: '', index: true },
+    featured: { type: Boolean, default: false },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Compound index for search performance
 BookSchema.index({ title: 'text', author: 'text', description: 'text' });
+BookSchema.index({ 'authors.name': 1 });
+BookSchema.index({ subjects: 1 });
 
 const Book: Model<IBookDocument> =
   mongoose.models.Book || mongoose.model<IBookDocument>('Book', BookSchema);

@@ -59,7 +59,11 @@ export async function middleware(request: NextRequest) {
 
   if (!session) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
+    const nextPath =
+      pathname === '/checkout' || pathname.startsWith('/checkout/')
+        ? '/cart'
+        : `${pathname}${request.nextUrl.search}`;
+    loginUrl.searchParams.set('next', nextPath);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -72,8 +76,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/cart/:path*',
-    '/wishlist/:path*',
     '/checkout/:path*',
     '/orders/:path*',
     '/account/:path*',

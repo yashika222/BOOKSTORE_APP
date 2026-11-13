@@ -1,20 +1,7 @@
-/**
- * Practical JavaScript & Data Structures Demonstration Module
- * 
- * This module demonstrates key Computer Science and JavaScript concepts
- * used by the bookstore where appropriate. OrderQueue is an isolated example
- * and is not connected to persisted order processing.
- */
 
 import { CartItem, ICommercialBook, WishlistItem } from "@/types";
 
-// ==========================================
-// 1. Array Higher-Order Functions: map, filter, reduce
-// ==========================================
 
-/**
- * Demonstrates reduce() to calculate cart subtotal and total quantities
- */
 export function calculateCartSummary(items: CartItem[]): { subtotal: number; totalQty: number } {
   return items.reduce(
     (accumulator, currentItem) => {
@@ -28,9 +15,7 @@ export function calculateCartSummary(items: CartItem[]): { subtotal: number; tot
   );
 }
 
-/**
- * Demonstrates filter() to filter books by keyword, genre, and price
- */
+
 export function filterBooks<T extends { title: string; author?: string; genre?: string; price?: number }>(
   books: T[],
   query: string,
@@ -52,14 +37,7 @@ export function filterBooks<T extends { title: string; author?: string; genre?: 
   });
 }
 
-// ==========================================
-// 2. Set: Fast Uniqueness & No Duplicates
-// ==========================================
 
-/**
- * Demonstrates Set for Wishlist duplicate prevention.
- * Ensures each book ID only exists once in O(1) membership check time.
- */
 export class WishlistSetManager {
   private idSet: Set<string | number>;
 
@@ -85,13 +63,7 @@ export class WishlistSetManager {
   }
 }
 
-// ==========================================
-// 3. Map: Key-Value Fast Lookup Cache
-// ==========================================
 
-/**
- * Demonstrates Map for O(1) in-memory fast book lookup by ID or ISBN.
- */
 export class BookLookupMap {
   private cache: Map<string, ICommercialBook> = new Map();
 
@@ -115,16 +87,7 @@ export class BookLookupMap {
   }
 }
 
-// ==========================================
-// 4. Stack (LIFO - Last In, First Out)
-// ==========================================
 
-/**
- * Cart Undo Stack:
- * Whenever an item is deleted or updated in the cart,
- * the previous state is pushed to the stack.
- * When the user clicks "Undo", the top state is popped back.
- */
 export class CartUndoStack<T> {
   private items: T[] = [];
   private readonly maxSize: number;
@@ -198,15 +161,7 @@ export class PaginationStack<T> {
   }
 }
 
-// ==========================================
-// 5. Queue (FIFO - First In, First Out)
-// ==========================================
 
-/**
- * Order Processing Queue:
- * Simulates real-world order fulfillment where orders are processed
- * strictly in the order they arrived (First-Come, First-Served).
- */
 export interface QueuedOrderTask {
   orderId: string;
   userEmail: string;
@@ -251,10 +206,6 @@ export class OrderQueue {
     return [...this.queue];
   }
 }
-
-// ==========================================
-// 6. Tree: Category Hierarchy Navigation
-// ==========================================
 
 export interface CategoryTreeNode {
   title: string;

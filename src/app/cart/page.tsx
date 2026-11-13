@@ -31,12 +31,15 @@ import {
   undoRemove,
   clearCart,
 } from '@/store/cartSlice';
+import { formatCurrency, shippingFeeFor } from '@/lib/currency';
+import { confirmDestructiveAction } from '@/lib/confirmAction';
 
 export default function CartPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
   const cartItems = useAppSelector((state) => state.cart.items);
+  const { isAuthenticated, isGuest } = useAppSelector((state) => state.auth);
   const undoStack = useAppSelector((state) => state.cart.undoStack);
 
   // Subtotal calculated with reduce() (DSA requirement)
@@ -44,13 +47,19 @@ export default function CartPage() {
     (acc, item) => acc + item.price * item.qty,
     0
   );
-  const shippingFee = subtotal > 35 || subtotal === 0 ? 0 : 4.99;
-  const estimatedTax = Number((subtotal * 0.05).toFixed(2));
-  const grandTotal = Number((subtotal + shippingFee + estimatedTax).toFixed(2));
+  const shippingFee = shippingFeeFor(subtotal);
+  const grandTotal = Number((subtotal + shippingFee).toFixed(2));
 
   const handleRemove = (bookId: string | number) => {
-    dispatch(removeFromCart(bookId));
-    message.info('Item removed. Click "Undo" to restore if needed.');
+    void confirmDestructiveAction({
+      title: 'Remove this book?',
+      content: 'Are you sure you want to remove this book from your cart?',
+      okText: 'Remove',
+      onOk: () => {
+        dispatch(removeFromCart(bookId));
+        message.info('Item removed. Click "Undo" to restore if needed.');
+      },
+    }).catch(() => undefined);
   };
 
   const handleUndo = () => {
@@ -110,7 +119,7 @@ export default function CartPage() {
       dataIndex: 'price',
       key: 'price',
       render: (price: number) => (
-        <span className="font-semibold text-gray-800">${price.toFixed(2)}</span>
+        <span className="font-semibold text-gray-800">{formatCurrency(price)}</span>
       ),
     },
     {
@@ -134,7 +143,7 @@ export default function CartPage() {
       key: 'itemTotal',
       render: (_, item) => (
         <span className="font-bold text-violet-700">
-          ${(item.price * item.qty).toFixed(2)}
+          {formatCurrency(item.price * item.qty)}
         </span>
       ),
     },
@@ -257,7 +266,7 @@ export default function CartPage() {
             <div className="flex justify-between">
               <span>Items Subtotal ({cartItems.length} titles)</span>
               <span className="font-semibold text-gray-900">
-                ${subtotal.toFixed(2)}
+                {formatCurrency(subtotal)}
               </span>
             </div>
 
@@ -267,19 +276,14 @@ export default function CartPage() {
                 {shippingFee === 0 ? (
                   <span className="text-emerald-600 font-semibold">FREE</span>
                 ) : (
-                  `$${shippingFee.toFixed(2)}`
+                  formatCurrency(shippingFee)
                 )}
               </span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Estimated Tax (5%)</span>
-              <span>${estimatedTax.toFixed(2)}</span>
-            </div>
-
             {shippingFee > 0 && (
               <p className="text-[11px] text-gray-400">
-                Free shipping on orders over $35.00!
+                Free delivery on orders over {formatCurrency(500)}.
               </p>
             )}
 
@@ -287,7 +291,7 @@ export default function CartPage() {
 
             <div className="flex justify-between text-base font-extrabold text-gray-900">
               <span>Total Amount</span>
-              <span className="text-violet-700 text-xl">${grandTotal.toFixed(2)}</span>
+              <span className="text-violet-700 text-xl">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
 
@@ -296,10 +300,17 @@ export default function CartPage() {
             size="large"
             block
             icon={<ArrowRightOutlined />}
-            onClick={() => router.push('/checkout')}
+            onClick={() => {
+              if (!isAuthenticated || isGuest) {
+                message.warning('Log in or create an account to place your order.');
+                router.push(`/login?next=${encodeURIComponent('/cart')}`);
+                return;
+              }
+              router.push('/checkout');
+            }}
             className="bg-violet-600 hover:bg-violet-700 font-bold h-12 shadow-md flex items-center justify-center gap-2"
           >
-            Proceed to Checkout
+            {isAuthenticated && !isGuest ? 'Proceed to Checkout' : 'Log in to Checkout'}
           </Button>
 
           <div className="pt-2 text-center">

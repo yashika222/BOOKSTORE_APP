@@ -16,16 +16,20 @@ export const dynamic = 'force-dynamic';
 
 interface GoogleTokenResponse {
   access_token?: string;
+  id_token?: string;
   error?: string;
 }
 
-interface GoogleUserInfo {
-  id?: string;
-  sub?: string;
+interface GoogleIdTokenInfo {
+  aud?: string;
+  iss?: string;
+  exp?: string;
   email?: string;
+  email_verified?: string | boolean;
+  sub?: string;
   name?: string;
   picture?: string;
-  verified_email?: boolean;
+  error?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -56,22 +60,27 @@ export async function GET(request: NextRequest) {
       }),
     });
     const tokenPayload = (await tokenResponse.json()) as GoogleTokenResponse;
-    if (!tokenResponse.ok || !tokenPayload.access_token) {
+    if (!tokenResponse.ok || !tokenPayload.id_token) {
       logger.warn(`Google token exchange failed: ${tokenPayload.error || tokenResponse.status}`);
       return redirectWithGoogleError(request.url, 'google_failed');
     }
 
-    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokenPayload.access_token}` },
-    });
-    const profile = (await profileResponse.json()) as GoogleUserInfo;
-    const googleId = profile.id || profile.sub;
-    const email = profile.email?.toLowerCase().trim();
-    const name = (profile.name || email?.split('@')[0] || 'Google User').slice(0, 60);
-
-    if (!profileResponse.ok || !googleId || !email) {
+    const tokenInfoResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenPayload.id_token)}`
+    );
+    const tokenInfo = (await tokenInfoResponse.json()) as GoogleIdTokenInfo;
+    const issuerOk = tokenInfo.iss === 'https://accounts.google.com' || tokenInfo.iss === 'accounts.google.com';
+    const audienceOk = tokenInfo.aud === config.clientId;
+    const expiryOk = Number(tokenInfo.exp) * 1000 > Date.now();
+    const emailVerified = tokenInfo.email_verified === true || tokenInfo.email_verified === 'true';
+    if (!tokenInfoResponse.ok || !issuerOk || !audienceOk || !expiryOk || !emailVerified || !tokenInfo.email || !tokenInfo.sub) {
+      logger.warn('Google ID token failed signature, issuer, audience, expiry or email verification checks.');
       return redirectWithGoogleError(request.url, 'google_failed');
     }
+
+    const googleId = tokenInfo.sub;
+    const email = tokenInfo.email.toLowerCase().trim();
+    const name = (tokenInfo.name || email.split('@')[0] || 'Google User').slice(0, 60);
 
     await connectToDatabase();
 
@@ -82,14 +91,16 @@ export async function GET(request: NextRequest) {
         email,
         googleId,
         authProvider: 'google',
-        avatar: profile.picture || '',
+        avatar: tokenInfo.picture || '',
         role: 'customer',
+        emailVerified: true,
       });
       logger.info(`New Google user registered: ${email}`);
     } else {
       if (!user.googleId) user.googleId = googleId;
       user.authProvider = user.password ? user.authProvider : 'google';
-      if (profile.picture && !user.avatar) user.avatar = profile.picture;
+      if (tokenInfo.picture && !user.avatar) user.avatar = tokenInfo.picture;
+      user.emailVerified = true;
       if (!user.name && name) user.name = name;
       await user.save();
       logger.info(`Google user signed in: ${email}`);

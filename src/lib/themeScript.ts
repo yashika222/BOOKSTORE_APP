@@ -1,0 +1,1 @@
+export const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var p=localStorage.getItem('bookstore_theme');var dark=p==='dark'||(p!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;

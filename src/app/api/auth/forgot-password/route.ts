@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import { createOtp, createResetToken, sha256 } from '@/lib/cryptoTokens';
+import { createOtp, sha256 } from '@/lib/cryptoTokens';
 import { isSmtpConfigured, sendPasswordResetEmail } from '@/lib/mail';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import logger from '@/lib/logger';
@@ -47,28 +47,49 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase();
-    const user = await User.findOne({ email }).select('+passwordResetTokenHash +passwordResetOtpHash');
+    const user = await User.findOne({ email }).select(
+      '+passwordResetOtpHash +passwordResetOtpExpires +passwordResetOtpLastSentAt'
+    );
     if (!user) {
       return NextResponse.json(GENERIC_SUCCESS);
     }
 
-    const token = createResetToken();
-    const otp = createOtp();
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    if (
+      user.passwordResetOtpLastSentAt &&
+      Date.now() - user.passwordResetOtpLastSentAt.getTime() < 60 * 1000
+    ) {
+      return NextResponse.json(
+        { success: false, message: 'Please wait 60 seconds before requesting another code.' },
+        { status: 429 }
+      );
+    }
 
-    user.passwordResetTokenHash = sha256(token);
-    user.passwordResetExpires = expires;
+    const otp = createOtp();
     user.passwordResetOtpHash = sha256(otp);
-    user.passwordResetOtpExpires = expires;
+    user.passwordResetOtpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.passwordResetOtpAttempts = 0;
+    user.passwordResetOtpLastSentAt = new Date();
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetSessionHash = undefined;
+    user.passwordResetSessionExpires = undefined;
     await user.save();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    const resetUrl = `${appUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+    try {
+      await sendPasswordResetEmail({ to: user.email, otp });
+    } catch (mailError) {
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpires = undefined;
+      user.passwordResetOtpAttempts = 0;
+      await user.save();
+      throw mailError;
+    }
+    logger.info('Password reset OTP email sent for a registered account.');
 
-    await sendPasswordResetEmail({ to: user.email, resetUrl, otp });
-    logger.info(`Password reset email queued for a registered account.`);
-
-    return NextResponse.json(GENERIC_SUCCESS);
+    return NextResponse.json({
+      success: true,
+      message: 'If that email is registered, a password reset code has been sent.',
+    });
   } catch (error) {
     logger.error(`Forgot-password request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(

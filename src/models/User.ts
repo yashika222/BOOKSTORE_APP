@@ -13,14 +13,20 @@ export interface IUserDocument extends Document {
   name: string;
   email: string;
   password?: string;
+  mobile?: string;
   googleId?: string;
   authProvider: 'local' | 'google';
   avatar?: string;
   role: 'customer' | 'admin';
+  emailVerified: boolean;
   passwordResetTokenHash?: string;
   passwordResetExpires?: Date;
   passwordResetOtpHash?: string;
   passwordResetOtpExpires?: Date;
+  passwordResetOtpAttempts?: number;
+  passwordResetOtpLastSentAt?: Date;
+  passwordResetSessionHash?: string;
+  passwordResetSessionExpires?: Date;
   passwordChangedAt?: Date;
   recentlyViewed: RecentlyViewedBook[];
   createdAt: Date;
@@ -44,6 +50,11 @@ const UserSchema = new Schema<IUserDocument>(
       trim: true,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email address'],
       index: true,
+    },
+    mobile: {
+      type: String,
+      trim: true,
+      default: '',
     },
     password: {
       type: String,
@@ -72,10 +83,18 @@ const UserSchema = new Schema<IUserDocument>(
       enum: ['customer', 'admin'],
       default: 'customer',
     },
+    emailVerified: {
+      type: Boolean,
+      default: true,
+    },
     passwordResetTokenHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
     passwordResetOtpHash: { type: String, select: false },
     passwordResetOtpExpires: { type: Date, select: false },
+    passwordResetOtpAttempts: { type: Number, select: false, default: 0 },
+    passwordResetOtpLastSentAt: { type: Date, select: false },
+    passwordResetSessionHash: { type: String, select: false },
+    passwordResetSessionExpires: { type: Date, select: false },
     passwordChangedAt: { type: Date, select: false },
     recentlyViewed: {
       type: [

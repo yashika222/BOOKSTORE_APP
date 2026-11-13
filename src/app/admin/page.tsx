@@ -37,6 +37,8 @@ import { useAppSelector } from '@/store/hooks';
 import { ICommercialBook, IOrder } from '@/types';
 import api from '@/lib/axios';
 import BookCoverImage from '@/components/books/BookCoverImage';
+import { formatCurrency } from '@/lib/currency';
+import { confirmDestructiveAction } from '@/lib/confirmAction';
 
 export default function AdminDashboardPage() {
   const { user, isAuthenticated, loading: authLoading } = useAppSelector(
@@ -252,7 +254,7 @@ export default function AdminDashboardPage() {
       title: 'Price',
       dataIndex: 'price',
       key: 'price',
-      render: (price: number) => <span className="font-bold">${price.toFixed(2)}</span>,
+      render: (price: number) => <span className="font-bold">{formatCurrency(price)}</span>,
     },
     {
       title: 'Stock',
@@ -333,7 +335,7 @@ export default function AdminDashboardPage() {
       dataIndex: 'total',
       key: 'total',
       render: (total: number) => (
-        <span className="font-bold text-violet-700">${total.toFixed(2)}</span>
+        <span className="font-bold text-violet-700">{formatCurrency(total)}</span>
       ),
     },
     {

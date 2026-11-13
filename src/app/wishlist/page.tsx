@@ -15,14 +15,15 @@ import { removeFromWishlist, clearWishlist } from '@/store/wishlistSlice';
 import { addToCart } from '@/store/cartSlice';
 import BookCoverImage from '@/components/books/BookCoverImage';
 import { bookDetailsHref } from '@/lib/bookRoutes';
+import { formatCurrency } from '@/lib/currency';
 
 export default function WishlistPage() {
   const dispatch = useAppDispatch();
   const wishlistItems = useAppSelector((state) => state.wishlist.items);
 
   const handleMoveToCart = (item: (typeof wishlistItems)[0]) => {
-    if (!item.isCommercial) {
-      message.info('This is a free digital book and cannot be added to the shopping cart.');
+    if (!(item.price && item.price > 0)) {
+      message.info('This title has no storefront price, so it cannot be added to the cart.');
       return;
     }
 
@@ -154,7 +155,7 @@ export default function WishlistPage() {
 
                 <div className="mt-auto pt-2 border-t border-gray-100 flex items-center justify-between">
                   <span className="font-extrabold text-sm text-violet-700">
-                    {item.isCommercial ? `$${(item.price || 0).toFixed(2)}` : 'Free ebook'}
+                    {item.price ? formatCurrency(item.price) : 'Price unavailable'}
                   </span>
                   {item.isCommercial ? (
                     <Tag color="gold" className="text-[10px]">

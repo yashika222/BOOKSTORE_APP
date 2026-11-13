@@ -20,6 +20,7 @@ export default function BookCoverImage({
   className = '',
 }: BookCoverImageProps) {
   const [failed, setFailed] = useState(false);
+  const displayTitle = title?.trim() || 'Untitled';
 
   useEffect(() => {
     setFailed(false);
@@ -30,34 +31,29 @@ export default function BookCoverImage({
       /* eslint-disable-next-line @next/next/no-img-element */
       <img
         src={src}
-        alt={alt || `Cover of ${title}`}
+        alt={alt || `Cover of ${displayTitle}`}
         loading="lazy"
+        referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
         className={className}
       />
     );
   }
 
-  const colorIndex = Array.from(title).reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0
-  ) % COVER_COLORS.length;
+  const colorIndex =
+    Array.from(displayTitle).reduce((total, character) => total + character.charCodeAt(0), 0) %
+    COVER_COLORS.length;
 
   return (
     <div
       role="img"
-      aria-label={`Book cover of ${title}`}
-      className={`relative flex h-full w-full min-h-32 items-center justify-center overflow-hidden rounded-md p-4 text-center text-white shadow-md ${className}`}
+      aria-label={`Book cover of ${displayTitle}`}
+      className={`relative flex items-center justify-center overflow-hidden rounded-md p-3 text-center text-white shadow-md ${className}`}
       style={{ backgroundColor: COVER_COLORS[colorIndex] }}
     >
-      <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full border border-white/20" />
-      <div className="absolute -bottom-12 -left-8 h-36 w-36 rounded-full border border-white/20" />
       <div className="relative max-w-full">
-        <div className="mb-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/70">
-          PageTurner Editions
-        </div>
-        <div className="line-clamp-3 text-sm font-bold leading-snug">{title}</div>
-        {author && <div className="mt-3 line-clamp-1 text-[10px] text-white/75">{author}</div>}
+        <div className="line-clamp-4 text-xs font-bold leading-snug">{displayTitle}</div>
+        {author ? <div className="mt-2 line-clamp-1 text-[10px] text-white/75">{author}</div> : null}
       </div>
     </div>
   );

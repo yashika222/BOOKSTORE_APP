@@ -292,12 +292,28 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Create the initial admin account through a secure, deployment-specific provisioning process. Registration only creates customer accounts; this project does not ship default admin credentials or an admin seed.
 
-### 4. Run Development Server
+### 4. Import 1,000 Gutendex books
+```bash
+npm run import:books
+```
+This sequentially fetches Gutendex pages, upserts exactly 1,000 unique `sourceId` records, and labels demonstration INR prices as `pricingSource: demo` (not Gutendex-provided).
+
+Google OAuth and transactional email stay inactive until `GOOGLE_*` and SMTP/Resend variables are set. Unconfigured Google sign-in redirects to `/login?error=google_not_configured`.
+
+Quality scripts:
+```bash
+npm run lint
+npm run type-check
+npm run lighthouse
+```
+SonarQube: install a local scanner or SonarCloud, then run `sonar-scanner` against `sonar-project.properties`. Analysis has not been claimed as passing until that command is executed in your environment.
+
+### 5. Run Development Server
 ```bash
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
-The development command uses Turbopack for faster page compilation. If you encounter a Turbopack compatibility issue, use `npm run dev:webpack` to start the Webpack-based development server instead.
+The development command uses Webpack for reliable development builds. On Next.js 14, Turbopack can leave development manifests unavailable after switching between dev and production builds; `npm run dev:webpack` is also available as an explicit alias.
 
 ---
 

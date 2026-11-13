@@ -12,6 +12,7 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { ICommercialBook } from '@/types';
+import { formatCurrency } from '@/lib/currency';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addToCart } from '@/store/cartSlice';
 import { toggleWishlist } from '@/store/wishlistSlice';
@@ -36,7 +37,6 @@ export default function CommercialBookCard({ book }: CommercialBookCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!requireAuthentication('Please log in to add books to your cart.')) return;
 
     if (book.stock <= 0) {
       message.warning('This book is currently out of stock.');
@@ -137,7 +137,7 @@ export default function CommercialBookCard({ book }: CommercialBookCardProps) {
 
         <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-2">
           <div>
-            <div className="text-base font-extrabold text-violet-700">${book.price.toFixed(2)}</div>
+            <div className="text-base font-extrabold text-violet-700">{formatCurrency(book.price)}</div>
             <div className="text-[10px] text-gray-500">
               {book.stock > 0 ? (
                 <span className="flex items-center gap-0.5 text-emerald-600">

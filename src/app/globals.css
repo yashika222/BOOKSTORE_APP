@@ -3,9 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --background: #fdfdfd;
-  --foreground: #1c1917;
-  --primary: #7c3aed;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --primary: #a03037;
+  --card: #ffffff;
+  --muted: #9d9d9d;
+  --border: #e2e2e2;
+  --header: #a03037;
+  --footer: #2b1a1a;
+  --action: #3371b4;
+  --rating: #388e3c;
 }
 
 body {
@@ -15,6 +22,34 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+}
+
+html.dark {
+  --background: #121212;
+  --foreground: #f3f3f3;
+  --card: #1c1c1c;
+  --muted: #a3a3a3;
+  --border: #333333;
+  --header: #7a1f26;
+  --footer: #140c0c;
+  --action: #4d8fd6;
+  --rating: #4caf50;
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+html.dark .ant-input,
+html.dark .ant-input-affix-wrapper,
+html.dark .ant-select-selector,
+html.dark .ant-collapse,
+html.dark .ant-card {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
 }
 
 /* Custom Scrollbar */

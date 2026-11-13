@@ -4,7 +4,13 @@ import React from 'react';
 import { Button } from 'antd';
 import { GoogleOutlined } from '@ant-design/icons';
 
-export default function GoogleSignInButton({ nextPath }: { nextPath?: string }) {
+export default function GoogleSignInButton({
+  nextPath,
+  compact,
+}: {
+  nextPath?: string;
+  compact?: boolean;
+}) {
   const startGoogleSignIn = () => {
     const params = new URLSearchParams();
     if (nextPath) params.set('next', nextPath);
@@ -16,11 +22,11 @@ export default function GoogleSignInButton({ nextPath }: { nextPath?: string }) 
     <Button
       size="large"
       block
-      icon={<GoogleOutlined />}
+      icon={compact ? undefined : <GoogleOutlined />}
       onClick={startGoogleSignIn}
-      className="h-11 font-semibold"
+      className={compact ? 'h-10' : 'h-11 font-semibold'}
     >
-      Continue with Google
+      {compact ? 'Google' : 'Continue with Google'}
     </Button>
   );
 }

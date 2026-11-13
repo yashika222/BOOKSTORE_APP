@@ -4,11 +4,12 @@ import AntdRegistryWrapper from '@/components/layout/AntdRegistryWrapper';
 import StoreProvider from '@/store/StoreProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { THEME_BOOTSTRAP_SCRIPT } from '@/lib/themeScript';
 
 export const metadata: Metadata = {
-  title: 'PageTurner Bookstore | Discover, Read & Order Books',
+  title: 'Bookstore | Discover, Read & Order Books',
   description:
-    'Discover your next favourite read at PageTurner Bookstore, with new favourites and timeless classics to explore.',
+    'Browse public-domain and storefront titles, manage your cart, and place cash-on-delivery orders.',
 };
 
 export default function RootLayout({
@@ -17,8 +18,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen flex flex-col bg-[#fafafa]">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+      </head>
+      <body className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <AntdRegistryWrapper>
           <StoreProvider>
             <Navbar />

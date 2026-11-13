@@ -5,7 +5,10 @@ import { hashPassword } from '@/lib/auth';
 import { sha256 } from '@/lib/cryptoTokens';
 import { validatePassword } from '@/lib/passwordPolicy';
 import { consumeRateLimit } from '@/lib/rateLimit';
+import { sendPasswordResetConfirmationEmail } from '@/lib/mail';
 import logger from '@/lib/logger';
+
+const RESET_SESSION_COOKIE = 'bookstore_password_reset';
 
 function tokenFromRequest(request: NextRequest, bodyToken?: unknown): string {
   if (typeof bodyToken === 'string' && bodyToken.trim()) return bodyToken.trim();
@@ -51,17 +54,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const token = tokenFromRequest(request, body?.token);
-    const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
     const password = typeof body?.newPassword === 'string' ? body.newPassword : (typeof body?.password === 'string' ? body.password : '');
     const confirmPassword = typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
-
-    if (!token || !/^\d{6}$/.test(otp)) {
-      return NextResponse.json(
-        { success: false, message: 'A valid reset link and 6-digit verification code are required.' },
-        { status: 400 }
-      );
-    }
 
     const passwordError = validatePassword(password);
     if (passwordError) {
@@ -75,7 +69,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const limited = consumeRateLimit(`reset:${sha256(token)}`, 8, 15 * 60 * 1000);
+    const resetSession = request.cookies.get(RESET_SESSION_COOKIE)?.value || '';
+    if (!resetSession) {
+      return NextResponse.json(
+        { success: false, message: 'Verify the code from your email before choosing a new password.' },
+        { status: 401 }
+      );
+    }
+
+    const sessionHash = sha256(resetSession);
+    const limited = consumeRateLimit(`reset:${sessionHash}`, 8, 15 * 60 * 1000);
     if (!limited.allowed) {
       return NextResponse.json(
         { success: false, message: 'Too many reset attempts. Request a new email.' },
@@ -85,29 +88,16 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase();
     const user = await User.findOne({
-      passwordResetTokenHash: sha256(token),
+      passwordResetSessionHash: sessionHash,
+      passwordResetSessionExpires: { $gt: new Date() },
     }).select(
-      '+passwordResetTokenHash +passwordResetExpires +passwordResetOtpHash +passwordResetOtpExpires +password'
+      '+passwordResetSessionHash +passwordResetSessionExpires +password'
     );
 
-    if (
-      !user ||
-      !user.passwordResetExpires ||
-      user.passwordResetExpires.getTime() < Date.now() ||
-      !user.passwordResetOtpHash ||
-      !user.passwordResetOtpExpires ||
-      user.passwordResetOtpExpires.getTime() < Date.now()
-    ) {
+    if (!user) {
       return NextResponse.json(
-        { success: false, message: 'This reset link or verification code is invalid or has expired.' },
-        { status: 400 }
-      );
-    }
-
-    if (user.passwordResetOtpHash !== sha256(otp)) {
-      return NextResponse.json(
-        { success: false, message: 'The verification code is incorrect.' },
-        { status: 400 }
+        { success: false, message: 'Password reset verification expired. Request a new code.' },
+        { status: 401 }
       );
     }
 
@@ -117,13 +107,34 @@ export async function POST(request: NextRequest) {
     user.passwordResetExpires = undefined;
     user.passwordResetOtpHash = undefined;
     user.passwordResetOtpExpires = undefined;
+    user.passwordResetOtpAttempts = 0;
+    user.passwordResetSessionHash = undefined;
+    user.passwordResetSessionExpires = undefined;
     await user.save();
 
+    try {
+      await sendPasswordResetConfirmationEmail({ to: user.email, name: user.name || 'BookStore customer' });
+    } catch (mailError) {
+      logger.warn(
+        `Password reset confirmation email failed for ${user.email}: ${
+          mailError instanceof Error ? mailError.message : 'Unknown error'
+        }`
+      );
+    }
+
     logger.info('A user password was reset successfully.');
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Your password has been updated. You can now sign in.',
     });
+    response.cookies.set(RESET_SESSION_COOKIE, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api/auth/reset-password',
+      maxAge: 0,
+    });
+    return response;
   } catch (error) {
     logger.error(`Password reset failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(

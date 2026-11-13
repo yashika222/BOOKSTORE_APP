@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+coverage
+reports
+public
+design-source
+*.min.js

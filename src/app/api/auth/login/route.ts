@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
 import { comparePassword, signToken, AUTH_COOKIE_OPTIONS } from '@/lib/auth';
 import logger from '@/lib/logger';
+import { queueEmail, sendLoginNotificationEmail } from '@/lib/mail';
 
 interface FallbackUser {
   id: string;
@@ -64,10 +65,21 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        if (user.emailVerified === false) {
+          return NextResponse.json(
+            { success: false, message: 'Please verify your email before signing in.' },
+            { status: 403 }
+          );
+        }
+
         // Verify password with bcrypt
         const isPasswordValid = await comparePassword(password, user.password ?? '');
         if (isPasswordValid) {
           logger.info(`User logged in: ${user.email} (${user.role})`);
+          queueEmail(
+            () => sendLoginNotificationEmail({ to: user.email, name: user.name }),
+            'Login notification'
+          );
 
           const token = signToken({
             userId: user._id.toString(),

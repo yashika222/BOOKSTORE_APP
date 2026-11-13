@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectToDatabase from '@/lib/mongodb';
+import Cart from '@/models/Cart';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Server-side Cart Endpoint
- * In this application, Redux Toolkit + localStorage manages the active client-side cart.
- * The cart is stored in browser state and is not synchronized to the server.
- */
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUserFromRequest(request);
@@ -18,10 +14,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  await connectToDatabase();
+  const cart = await Cart.findOne({ userId: user.userId });
   return NextResponse.json({
     success: true,
-    userEmail: user.email,
-    message: 'Cart access verified.',
+    data: cart?.items || [],
   });
 }
 
@@ -41,11 +38,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(
-    {
-      success: false,
-      message: 'Server-side cart synchronization is not available. Your cart is stored in this browser.',
-    },
-    { status: 501 }
+  const items = body.items
+    .filter((item: { bookId?: unknown; qty?: unknown }) => typeof item?.bookId === 'string' && Number(item.qty) > 0)
+    .map((item: { bookId: string; qty: number; savedForLater?: boolean }) => ({
+      bookId: item.bookId,
+      qty: Math.min(99, Math.max(1, Number(item.qty))),
+      savedForLater: Boolean(item.savedForLater),
+    }));
+
+  await connectToDatabase();
+  const cart = await Cart.findOneAndUpdate(
+    { userId: user.userId },
+    { userId: user.userId, items },
+    { upsert: true, new: true }
   );
+
+  return NextResponse.json({ success: true, data: cart.items });
 }

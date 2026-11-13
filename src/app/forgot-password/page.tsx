@@ -2,128 +2,55 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Form, Input, Button, Alert, message } from 'antd';
-import { MailOutlined, ArrowLeftOutlined, KeyOutlined } from '@ant-design/icons';
 import api from '@/lib/axios';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const onFinish = async (values: { email: string }) => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await api.post('/api/auth/forgot-password', {
-        email: values.email,
-      });
-
+      const res = await api.post('/api/auth/forgot-password', { email: values.email });
       if (res.data?.success) {
-        setSubmitted(true);
-        setSubmittedEmail(values.email);
-        message.success(res.data.message || 'Reset link sent! Please check your email.');
+        message.success('If your email is registered, a one-time code has been sent.');
+        router.push(`/reset-password?email=${encodeURIComponent(values.email.trim().toLowerCase())}`);
       } else {
-        setErrorMessage(res.data?.message || 'Unable to send reset email. Please try again.');
+        setErrorMessage(res.data?.message || 'Unable to send reset email.');
       }
-    } catch (err: any) {
-      setErrorMessage(
-        err.response?.data?.message || err.message || 'Something went wrong. Please check your network or try again later.'
-      );
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
-      <div className="bg-white rounded-3xl p-8 border border-gray-200/80 shadow-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-violet-600 text-white flex items-center justify-center text-2xl mx-auto shadow-md">
-            <KeyOutlined />
-          </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-            Forgot Password?
-          </h1>
-          <p className="text-sm text-gray-500">
-            Enter your registered email address and we will send you a reset link and a verification code.
+    <div className="flex min-h-[70vh] items-start justify-center bg-white px-4 py-16 dark:bg-[var(--background)]">
+      <div className="w-full max-w-md">
+        <h1 className="mb-6 text-center text-2xl font-bold">Forgot Your Password?</h1>
+        <div className="border border-[var(--border)] bg-[var(--card)] p-8">
+          <p className="mb-6 text-center text-sm text-[var(--muted)]">
+            Enter your account email and we&apos;ll send you a one-time code. You&apos;ll verify it before choosing a new password.
           </p>
-        </div>
-
-        {errorMessage && (
-          <Alert
-            message="Request Failed"
-            description={errorMessage}
-            type="error"
-            showIcon
-            className="rounded-xl text-xs"
-          />
-        )}
-
-        {submitted ? (
-          <div className="space-y-4 text-center">
-            <Alert
-              message="Instructions Sent"
-              description={`If an account is associated with ${submittedEmail}, you will receive an email with a secure link and a 6-digit OTP code.`}
-              type="success"
-              showIcon
-              className="rounded-xl text-xs text-left"
-            />
-            <p className="text-xs text-gray-500">
-              Check your inbox (and spam folder). After clicking the link in your email, enter your 6-digit verification code to set a new password.
-            </p>
-            <Link href="/login">
-              <Button type="primary" block className="bg-violet-600 hover:bg-violet-700 font-bold h-11 text-sm mt-4">
-                Back to Sign In
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <Form
-            form={form}
-            name="forgotPasswordForm"
-            layout="vertical"
-            onFinish={onFinish}
-            requiredMark={false}
-            className="space-y-4"
-          >
-            <Form.Item
-              name="email"
-              label="Email Address"
-              rules={[
-                { required: true, message: 'Please enter your registered email' },
-                { type: 'email', message: 'Enter a valid email address' },
-              ]}
-            >
-              <Input
-                prefix={<MailOutlined className="text-gray-400" />}
-                placeholder="you@example.com"
-                size="large"
-              />
+          {errorMessage ? <Alert type="error" message={errorMessage} className="mb-4" showIcon /> : null}
+          <Form form={form} layout="vertical" requiredMark={false} onFinish={onFinish}>
+            <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
+              <Input autoComplete="email" />
             </Form.Item>
-
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              loading={loading}
-              block
-              className="bg-violet-600 hover:bg-violet-700 font-bold h-11 text-sm shadow-md mt-2"
-            >
-              Send Reset Link & OTP
+            <Button type="primary" htmlType="submit" block loading={loading} className="h-10 bg-[#a03037]">
+              Send Reset Code
             </Button>
           </Form>
-        )}
-
-        <div className="text-center pt-2">
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-violet-600 transition"
-          >
-            <ArrowLeftOutlined />
-            <span>Return to Login</span>
+        </div>
+        <div className="border border-t-0 border-[var(--border)] bg-[#f7f7f7] py-4 text-center dark:bg-[#1a1a1a]">
+          <Link href="/register" className="text-sm font-semibold tracking-wide text-[#111] dark:text-white">
+            CREATE ACCOUNT
           </Link>
         </div>
       </div>
