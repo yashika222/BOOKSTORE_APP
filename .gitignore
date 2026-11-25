@@ -37,3 +37,12 @@ next-env.d.ts
 # Application logs
 logs/
 *.log
+# Dependencies in all project folders
+**/node_modules/
+
+# Next.js build output in all project folders
+**/.next/
+
+# Environment secrets in all project folders
+**/.env
+**/.env.*

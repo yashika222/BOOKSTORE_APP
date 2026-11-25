@@ -1,0 +1,255 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PageTurner Bookstore API",
+    "version": "1.0.0",
+    "description": "RESTful API documentation for PageTurner Bookstore. Commercial inventory and orders are stored in MongoDB; Gutendex provides public-domain book metadata."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bookstoreCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "bookstore_token"
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register new user account",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string", "example": "Jane Doe" },
+                  "email": { "type": "string", "example": "jane@example.com" },
+                  "password": { "type": "string", "minLength": 6, "example": "your-password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered and JWT cookie set" },
+          "400": { "description": "Validation error" },
+          "409": { "description": "Email already exists" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user session",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "reader@example.com" },
+                  "password": { "type": "string", "example": "your-password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successfully authenticated, sets HTTP-only cookie" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Get current user session",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Returns current user or null when unauthenticated" },
+          "500": { "description": "Session could not be verified" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Log out and clear session cookie",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    },
+    "/api/books": {
+      "get": {
+        "summary": "List commercial books",
+        "tags": ["Commercial Books"],
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "genre", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "Persisted commercial books from MongoDB; an empty database returns an empty array" },
+          "400": { "description": "Invalid filter or limit" },
+          "503": { "description": "MongoDB inventory is unavailable" }
+        }
+      },
+      "post": {
+        "summary": "Create new commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "201": { "description": "Book created" },
+          "403": { "description": "Admin authorization required" }
+        }
+      }
+    },
+    "/api/books/{id}": {
+      "get": {
+        "summary": "Get commercial book by MongoDB ID or ISBN",
+        "tags": ["Commercial Books"],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Book details" },
+          "404": { "description": "Book not found" },
+          "500": { "description": "Database request failed" }
+        }
+      },
+      "patch": {
+        "summary": "Update commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "200": { "description": "Book updated" },
+          "403": { "description": "Admin authorization required" }
+        }
+      },
+      "delete": {
+        "summary": "Delete commercial book (Admin only)",
+        "tags": ["Commercial Books"],
+        "responses": {
+          "200": { "description": "Book deleted" },
+          "403": { "description": "Admin authorization required" }
+        }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "summary": "Get authenticated user orders (or all orders for admin)",
+        "tags": ["Orders"],
+        "responses": {
+          "200": { "description": "Array of orders" },
+          "401": { "description": "Authentication required" }
+        }
+      },
+      "post": {
+        "summary": "Place a demo order",
+        "tags": ["Orders"],
+        "security": [{ "bookstoreCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "items", "shippingAddress"],
+                "properties": {
+                  "requestId": { "type": "string", "format": "uuid" },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["bookId", "qty", "isCommercial"],
+                      "properties": {
+                        "bookId": { "type": "string", "description": "MongoDB _id or ISBN of an existing commercial book" },
+                        "qty": { "type": "integer", "minimum": 1, "maximum": 99 },
+                        "isCommercial": { "type": "boolean", "enum": [true] }
+                      }
+                    }
+                  },
+                  "shippingAddress": {
+                    "type": "object",
+                    "required": ["fullName", "email", "phone", "addressLine", "city", "postalCode"],
+                    "properties": {
+                      "fullName": { "type": "string" },
+                      "email": { "type": "string", "format": "email" },
+                      "phone": { "type": "string" },
+                      "addressLine": { "type": "string" },
+                      "city": { "type": "string" },
+                      "state": { "type": "string" },
+                      "postalCode": { "type": "string" },
+                      "country": { "type": "string" }
+                    }
+                  },
+                  "paymentMethod": { "type": "string", "enum": ["simulated_card", "cash_on_delivery"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Order created using database prices and inventory; this demo endpoint does not process payment" },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Authentication required" },
+          "409": { "description": "Inventory is unavailable" },
+          "500": { "description": "Order could not be created" }
+        }
+      }
+    },
+    "/api/cart": {
+      "get": {
+        "summary": "Verify access to the browser-managed cart",
+        "tags": ["Cart"],
+        "security": [{ "bookstoreCookie": [] }],
+        "responses": {
+          "200": { "description": "Authenticated access verified; no server-side cart is stored" },
+          "401": { "description": "Authentication required" }
+        }
+      },
+      "post": {
+        "summary": "Server-side cart synchronization (not implemented)",
+        "tags": ["Cart"],
+        "security": [{ "bookstoreCookie": [] }],
+        "responses": {
+          "401": { "description": "Authentication required" },
+          "501": { "description": "Cart is stored in the user's browser and is not synchronized to the server" }
+        }
+      }
+    },
+    "/api/gutendex": {
+      "get": {
+        "summary": "Proxy a Gutendex book catalog request",
+        "tags": ["Public Domain Books"],
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "uri" },
+            "description": "Allowlisted https://gutendex.com/books endpoint URL"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Live Gutendex data or a clearly marked offline catalog response" },
+          "400": { "description": "Invalid or unsupported URL" },
+          "404": { "description": "Book is not present in the offline catalog when Gutendex is unavailable" },
+          "502": { "description": "The proxy could not complete the request" }
+        }
+      }
+    }
+  }
+}

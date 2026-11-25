@@ -1,0 +1,389 @@
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/roboto-latin.woff2') format('woff2');
+}
+
+.page {
+  display: flex;
+  min-height: 100vh;
+  background: #adadad;
+  box-sizing: border-box;
+  font-family: Roboto, Arial, sans-serif;
+}
+
+.scene {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #adadad;
+  padding: 32px 20px;
+  box-sizing: border-box;
+}
+
+.authGroup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  transform: translateY(-5px);
+}
+
+.illustrationCard {
+  z-index: 1;
+  display: flex;
+  flex: 0 0 624px;
+  flex-direction: column;
+  align-items: flex-start;
+  height: 391px;
+  border-radius: 21px;
+  background: #f5f5f5;
+  padding: 52px 0 0 53px;
+  text-align: center;
+  box-sizing: border-box;
+  transform: translateY(2px);
+}
+
+.illustration {
+  display: block;
+  width: 245px;
+  height: 245px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.illustrationCaption {
+  width: 245px;
+  margin: 31px 0 0;
+  color: #0a0102;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  text-align: center;
+}
+
+.authPanel {
+  z-index: 2;
+  display: flex;
+  flex: 0 0 389px;
+  flex-direction: column;
+  min-height: 425px;
+  margin-left: -286px;
+  padding: 26px 67px 28px 68px;
+  border: 1px solid #e4e4e4;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 5px 15px rgb(0 0 0 / 16%);
+  box-sizing: border-box;
+}
+
+.tabs {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 244px;
+  height: 50px;
+  margin-bottom: 10.5px;
+}
+
+.tabs a {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  color: inherit;
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 33px;
+  text-decoration: none;
+}
+
+.activeTab {
+  color: #0a0102 !important;
+}
+
+.inactiveTab {
+  color: #878787 !important;
+}
+
+.activeMark {
+  display: block;
+  width: 16px;
+  height: 3px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: #a03037;
+}
+
+.form {
+  width: 100%;
+}
+
+.form.signupForm :global(.ant-form-item) {
+  margin-bottom: 11.5px;
+}
+
+.form.signupForm :global(.ant-form-item:last-of-type) {
+  margin-bottom: 22px;
+}
+
+.form :global(.ant-form-item) {
+  margin-bottom: 11.5px;
+}
+
+.form :global(.ant-form-item-label) {
+  padding: 0 0 2px;
+  line-height: 12px;
+}
+
+.form :global(.ant-form-item-label > label) {
+  height: auto;
+  color: #0a0102;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.form :global(.ant-input),
+.form :global(.ant-input-affix-wrapper) {
+  height: 35px;
+  padding: 4px 8px;
+  border-color: #e2e2e2;
+  border-radius: 2px;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 11px;
+  box-shadow: none;
+}
+
+.form :global(.ant-input-affix-wrapper .ant-input) {
+  height: auto;
+  padding: 0;
+}
+
+.form :global(.ant-input-affix-wrapper .ant-input-suffix) {
+  color: #9d9d9d;
+}
+
+.form :global(.ant-input:focus),
+.form :global(.ant-input-affix-wrapper-focused),
+.form :global(.ant-input-affix-wrapper:focus-within) {
+  border-color: #a03037 !important;
+  box-shadow: none !important;
+}
+
+.form :global(.ant-form-item-has-error .ant-input),
+.form :global(.ant-form-item-has-error .ant-input-affix-wrapper) {
+  border-color: #ff001c !important;
+  box-shadow: none !important;
+}
+
+.form :global(.ant-form-item-explain-error) {
+  color: #ff001c;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 8px;
+  line-height: 10px;
+}
+
+.forgotPassword {
+  margin-top: -9px;
+  margin-bottom: 14.5px;
+  text-align: right;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.04px;
+  line-height: 13px;
+}
+
+.forgotPassword a {
+  color: #9d9d9d;
+  text-decoration: none;
+}
+
+.forgotPassword a:hover {
+  color: #a03037;
+}
+
+.submitButton {
+  height: 37px;
+  border-color: #a03037 !important;
+  border-radius: 3px;
+  background: #a03037 !important;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.submitButton:hover {
+  border-color: #87252b !important;
+  background: #87252b !important;
+}
+
+.orDivider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 191px;
+  height: 18px;
+  margin: 26px 0 28px 29px;
+  color: #333;
+}
+
+.orDivider span {
+  width: 75px;
+  height: 1px;
+  background: #e2e2e2;
+}
+
+.orDivider b {
+  width: 22px;
+  color: #343434;
+  font-family: 'Meiryo UI', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.socialButtons {
+  display: flex;
+  width: 100%;
+}
+
+.socialButtons :global(.ant-btn) {
+  height: 37px;
+  border-radius: 3px;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.googleButton {
+  width: 100%;
+}
+
+.googleButton :global(.ant-btn) {
+  width: 100%;
+  height: 37px !important;
+  padding: 0 6px;
+  border-color: #e4e4e4;
+  border-radius: 3px;
+  background: #f5f5f5;
+  color: #0a0102;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.errorAlert {
+  margin-bottom: 10px;
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
+@media (max-width: 760px) {
+  .scene {
+    min-height: 100vh;
+    align-items: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 28px 16px;
+  }
+
+  .authGroup {
+    flex-direction: column;
+    gap: 0;
+    margin-block: auto;
+    transform: none;
+  }
+
+  .illustrationCard {
+    flex-basis: auto;
+    width: min(100%, 384px);
+    height: 210px;
+    align-items: center;
+    padding: 12px 0 0;
+    border-radius: 12px 12px 0 0;
+    transform: none;
+  }
+
+  .illustration {
+    width: 130px;
+    height: 130px;
+    transform: none;
+  }
+
+  .illustrationCaption {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 18px;
+    transform: none;
+  }
+
+  .authPanel {
+    flex-basis: auto;
+    width: min(100%, 384px);
+    min-height: 0;
+    margin-left: 0;
+    padding: 19px 36px 28px;
+    border-radius: 0 0 4px 4px;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .form.signupForm :global(.ant-form-item) {
+    margin-bottom: 14px;
+  }
+
+  .form.signupForm :global(.ant-form-item:last-of-type) {
+    margin-bottom: 20px;
+  }
+
+  .form.signupForm :global(.ant-form-item-label) {
+    padding-bottom: 4px;
+    line-height: 16px;
+  }
+
+  .form.signupForm :global(.ant-form-item-label > label) {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .form.signupForm :global(.ant-input),
+  .form.signupForm :global(.ant-input-affix-wrapper) {
+    height: 44px;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .form.signupForm :global(.ant-input-affix-wrapper .ant-input) {
+    height: auto;
+    padding: 0;
+  }
+
+  .form.signupForm .submitButton {
+    height: 44px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .scene {
+    padding: 20px 10px;
+  }
+
+  .authPanel {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}
