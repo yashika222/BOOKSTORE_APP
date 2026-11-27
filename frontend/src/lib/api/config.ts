@@ -2,7 +2,7 @@
  * Single source of truth for the backend origin.
  * Only NEXT_PUBLIC_API_URL is used by the browser-facing API layer.
  */
-const configuredBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').trim();
+const configuredBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://bookstore-app-drab.vercel.app').trim();
 
 export const API_BASE_URL = configuredBaseUrl.replace(/\/+$/, '');
 
