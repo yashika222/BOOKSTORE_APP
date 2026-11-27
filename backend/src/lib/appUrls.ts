@@ -1,13 +1,27 @@
-const DEFAULT_FRONTEND_URL = 'http://localhost:3000';
+const DEFAULT_LOCAL_FRONTEND_URL = 'http://localhost:3000';
+const DEFAULT_PRODUCTION_FRONTEND_URL = 'https://bookstore-app-8m39.vercel.app';
 const DEFAULT_BACKEND_URL = 'http://localhost:3001';
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+function getDefaultFrontendUrl(): string {
+  return process.env.NODE_ENV === 'production'
+    ? DEFAULT_PRODUCTION_FRONTEND_URL
+    : DEFAULT_LOCAL_FRONTEND_URL;
+}
+
+function getConfiguredFrontendUrls(): string[] {
+  return (process.env.FRONTEND_URL || getDefaultFrontendUrl())
+    .split(',')
+    .map((url) => trimTrailingSlash(url.trim()))
+    .filter(Boolean);
+}
+
 /** Public origin of the separate frontend application. */
 export function getFrontendUrl(): string {
-  return trimTrailingSlash(process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL);
+  return getConfiguredFrontendUrls()[0] || getDefaultFrontendUrl();
 }
 
 /** Public origin of this backend application. */
@@ -22,9 +36,5 @@ export function frontendUrl(path: string): string {
 
 /** Origins permitted to make credentialed cross-origin API requests. */
 export function getAllowedOrigins(): string[] {
-  const configured = (process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL)
-    .split(',')
-    .map((origin) => trimTrailingSlash(origin.trim()))
-    .filter(Boolean);
-  return Array.from(new Set(configured));
+  return Array.from(new Set(getConfiguredFrontendUrls()));
 }

@@ -150,7 +150,7 @@ npm run email:verify
 
 ## Deployment
 
-Deploy `backend/` and `frontend/` as separate Next.js projects (for example, two Vercel projects). Set the backend environment variables in the backend project and only `NEXT_PUBLIC_*` variables in the frontend project. Set `FRONTEND_URL` on the backend to the deployed frontend origin and set `NEXT_PUBLIC_API_URL` on the frontend to the deployed backend origin. Both projects must be HTTPS in production for the cross-site cookie to be accepted.
+Deploy `backend/` and `frontend/` as separate Next.js projects (for example, two Vercel projects). Set the backend environment variables in the backend project and only `NEXT_PUBLIC_*` variables in the frontend project. Set `FRONTEND_URL` on the backend to the deployed frontend origin and set `NEXT_PUBLIC_API_URL` on the frontend to the deployed backend origin. If `FRONTEND_URL` is unset in production, the backend allows `https://bookstore-app-8m39.vercel.app` by default. For multiple frontend origins, set `FRONTEND_URL` to a comma-separated list; all listed origins are allowed for CORS, and the first is used for OAuth redirects and email links. Both projects must be HTTPS in production for the cross-site cookie to be accepted.
 
 The built-in rate-limit store is process-local and does not provide protection across multiple backend instances or restarts. The current defaults allow 10 login attempts per account and 30 per IP per 15 minutes, plus 5 password-reset requests per IP and 3 per account per hour. `backend/src/lib/rateLimit.ts` exposes a `RateLimitStore` interface and `configureRateLimitStore` hook; configure a shared Redis-backed adapter before deploying multiple instances. Do not treat the default in-memory store as distributed protection.
 
