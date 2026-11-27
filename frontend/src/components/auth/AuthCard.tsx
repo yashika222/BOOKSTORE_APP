@@ -117,7 +117,18 @@ export default function AuthCard({
               <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
                 <Input autoComplete="email" />
               </Form.Item>
-              <Form.Item name="password" label="Password" rules={[{ required: true, min: 8 }]}>
+              <Form.Item
+                name="password"
+                label="Password"
+                rules={[
+                  { required: true, message: 'Enter a password.' },
+                  { min: 8, max: 72, message: 'Password must be between 8 and 72 characters.' },
+                  {
+                    pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
+                    message: 'Include at least one letter and one number.',
+                  },
+                ]}
+              >
                 <Input.Password autoComplete="new-password" />
               </Form.Item>
               <Form.Item name="mobile" label="Mobile Number">

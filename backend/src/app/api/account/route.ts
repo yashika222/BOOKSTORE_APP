@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import { comparePassword, getCurrentUserFromRequest, hashPassword } from '@/lib/auth';
+import {
+  comparePassword,
+  getCurrentUserFromRequest,
+  hashPassword,
+  revokeAllUserSessions,
+} from '@/lib/auth';
 import { validatePassword } from '@/lib/passwordPolicy';
 import logger from '@/lib/logger';
 
@@ -32,11 +37,43 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ success: false, message: 'A valid account update is required.' }, { status: 400 });
+    }
+    if ('role' in body || 'email' in body || 'userId' in body || '_id' in body) {
+      return NextResponse.json(
+        { success: false, message: 'You cannot change protected account fields.' },
+        { status: 403 }
+      );
+    }
+    const editableFields = new Set(['name', 'currentPassword', 'newPassword', 'confirmPassword']);
+    if (Object.keys(body).some((field) => !editableFields.has(field))) {
+      return NextResponse.json(
+        { success: false, message: 'The request contains unsupported account fields.' },
+        { status: 400 }
+      );
+    }
+    if ('name' in body && typeof body.name !== 'string') {
+      return NextResponse.json(
+        { success: false, message: 'Name must be text.' },
+        { status: 400 }
+      );
+    }
+    if (
+      ('currentPassword' in body && typeof body.currentPassword !== 'string') ||
+      ('newPassword' in body && typeof body.newPassword !== 'string') ||
+      ('confirmPassword' in body && typeof body.confirmPassword !== 'string')
+    ) {
+      return NextResponse.json(
+        { success: false, message: 'Password fields must be text.' },
+        { status: 400 }
+      );
+    }
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
     const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
 
-    if (name && (name.length < 2 || name.length > 60)) {
+    if ('name' in body && (name.length < 2 || name.length > 60)) {
       return NextResponse.json(
         { success: false, message: 'Name must be between 2 and 60 characters.' },
         { status: 400 }
@@ -54,7 +91,7 @@ export async function PATCH(request: NextRequest) {
 
     if (name) user.name = name;
 
-    if (newPassword) {
+    if (newPassword || currentPassword || body?.confirmPassword) {
       if (!user.password) {
         return NextResponse.json(
           { success: false, message: 'This Google account does not have a password. Sign in with Google instead.' },
@@ -65,6 +102,15 @@ export async function PATCH(request: NextRequest) {
       if (passwordError) {
         return NextResponse.json({ success: false, message: passwordError }, { status: 400 });
       }
+      if (
+        typeof body?.confirmPassword !== 'string' ||
+        body.confirmPassword !== newPassword
+      ) {
+        return NextResponse.json(
+          { success: false, message: 'The new passwords do not match.' },
+          { status: 400 }
+        );
+      }
       const matches = await comparePassword(currentPassword, user.password);
       if (!matches) {
         return NextResponse.json(
@@ -74,16 +120,21 @@ export async function PATCH(request: NextRequest) {
       }
       user.password = await hashPassword(newPassword);
       user.passwordChangedAt = new Date();
-    }
-
-    if (body?.role) {
-      return NextResponse.json(
-        { success: false, message: 'You cannot change your account role.' },
-        { status: 403 }
-      );
+      user.passwordResetTokenHash = undefined;
+      user.passwordResetExpires = undefined;
+      user.passwordResetLastSentAt = undefined;
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpires = undefined;
+      user.passwordResetOtpAttempts = 0;
+      user.passwordResetOtpLastSentAt = undefined;
+      user.passwordResetSessionHash = undefined;
+      user.passwordResetSessionExpires = undefined;
     }
 
     await user.save();
+    if (newPassword) {
+      await revokeAllUserSessions(user._id.toString());
+    }
     return NextResponse.json({
       success: true,
       user: {

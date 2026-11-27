@@ -14,27 +14,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'A valid email is required.' }, { status: 400 });
     }
 
-    const limit = consumeRateLimit(`resend-otp:${email}`, 5, 15 * 60 * 1000);
+    const limit = await consumeRateLimit(`resend-otp:${email}`, 5, 15 * 60 * 1000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, message: `Too many resend requests. Try again in ${limit.retryAfterSeconds} seconds.` },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
       );
     }
 
     await connectToDatabase();
     const pending = await PendingRegistration.findOne({ email });
     if (!pending) {
-      return NextResponse.json(
-        { success: false, message: 'No pending registration was found for this email.' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: 'If registration is pending, a verification code will be sent.',
+      });
     }
     if (Date.now() - pending.lastSentAt.getTime() < 60 * 1000) {
-      return NextResponse.json(
-        { success: false, message: 'Please wait 60 seconds before requesting another code.' },
-        { status: 429 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: 'If registration is pending, a verification code will be sent.',
+      });
     }
 
     const otp = createOtp();
@@ -45,26 +45,13 @@ export async function POST(request: NextRequest) {
     await pending.save();
     try {
       await sendVerificationOtpEmail({ to: pending.email, name: pending.name, otp });
-    } catch (mailError) {
-      logger.error(
-        `Resend OTP email failed for ${email}: ${mailError instanceof Error ? mailError.message : 'Unknown error'}`
-      );
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            mailError instanceof Error
-              ? mailError.message
-              : 'Unable to send the verification email. Check SMTP configuration.',
-        },
-        { status: 503 }
-      );
+    } catch {
+      logger.error('Registration verification email delivery failed.');
     }
-    logger.info(`Registration OTP resent for ${email}`);
 
     return NextResponse.json({
       success: true,
-      message: 'A new verification code has been sent.',
+      message: 'If registration is pending, a verification code will be sent.',
     });
   } catch (error) {
     logger.error(`Resend OTP failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

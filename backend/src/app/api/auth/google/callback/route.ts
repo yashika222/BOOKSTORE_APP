@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import { AUTH_COOKIE_OPTIONS, signToken } from '@/lib/auth';
+import { authCookieOptions, createAuthSession } from '@/lib/auth';
 import logger from '@/lib/logger';
 import {
   GOOGLE_OAUTH_NEXT_COOKIE,
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       logger.info(`Google user signed in: ${email}`);
     }
 
-    const token = signToken({
+    const session = await createAuthSession({
       userId: user._id.toString(),
       email: user.email,
       name: user.name,
@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
       new URL(`/auth/callback?next=${encodeURIComponent(nextPath)}`, frontendUrl('/'))
     );
     response.cookies.set({
-      ...AUTH_COOKIE_OPTIONS,
-      value: token,
+      ...authCookieOptions(session.expiresAt),
+      value: session.token,
     });
     response.cookies.set({ name: GOOGLE_OAUTH_STATE_COOKIE, value: '', ...oauthCookieOptions(0) });
     response.cookies.set({ name: GOOGLE_OAUTH_NEXT_COOKIE, value: '', ...oauthCookieOptions(0) });

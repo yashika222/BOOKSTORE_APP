@@ -27,6 +27,7 @@ export interface IUserDocument extends Document {
   passwordResetOtpLastSentAt?: Date;
   passwordResetSessionHash?: string;
   passwordResetSessionExpires?: Date;
+  passwordResetLastSentAt?: Date;
   passwordChangedAt?: Date;
   recentlyViewed: RecentlyViewedBook[];
   createdAt: Date;
@@ -95,6 +96,7 @@ const UserSchema = new Schema<IUserDocument>(
     passwordResetOtpLastSentAt: { type: Date, select: false },
     passwordResetSessionHash: { type: String, select: false },
     passwordResetSessionExpires: { type: Date, select: false },
+    passwordResetLastSentAt: { type: Date, select: false },
     passwordChangedAt: { type: Date, select: false },
     recentlyViewed: {
       type: [

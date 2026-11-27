@@ -1,148 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import { comparePassword, signToken, AUTH_COOKIE_OPTIONS } from '@/lib/auth';
+import { authCookieOptions, comparePassword, createAuthSession } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { queueEmail, sendLoginNotificationEmail } from '@/lib/mail';
+import { consumeRateLimit, getClientIp, resetRateLimit } from '@/lib/rateLimit';
 
-interface FallbackUser {
-  id: string;
-  name: string;
-  email: string;
-  role: 'customer' | 'admin';
-}
-
-function getFallbackUser(email: string, password: string): FallbackUser | null {
-  const normEmail = email.toLowerCase().trim();
-  if (normEmail === 'admin@bookstore.com' && (password === 'Admin@123456' || password === 'admin123')) {
-    return {
-      id: 'demo-admin-id-001',
-      name: 'Store Manager (Admin)',
-      email: 'admin@bookstore.com',
-      role: 'admin',
-    };
-  }
-  if (normEmail === 'reader@bookstore.com' && (password === 'Reader@123456' || password === 'reader123')) {
-    return {
-      id: 'demo-customer-id-001',
-      name: 'Jane Reader',
-      email: 'reader@bookstore.com',
-      role: 'customer',
-    };
-  }
-  return null;
+function limitedResponse(retryAfterSeconds: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: `Too many sign-in attempts. Please try again in ${retryAfterSeconds} seconds.`,
+    },
+    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
+  );
 }
 
 export async function POST(request: NextRequest) {
-  let email = '';
-  let password = '';
-
   try {
-    const body = await request.json();
-    email = body?.email ?? '';
-    password = body?.password ?? '';
-
-    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { success: false, message: 'Please provide both email and password' },
+        { success: false, message: 'A valid email address and password are required.' },
         { status: 400 }
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const credentials =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : {};
+    const email = typeof credentials.email === 'string' ? credentials.email.trim().toLowerCase() : '';
+    const password = typeof credentials.password === 'string' ? credentials.password : '';
 
-    try {
-      await connectToDatabase();
-
-      // Check if user exists in database
-      const user = await User.findOne({ email: normalizedEmail });
-
-      if (user) {
-        if (!user.password) {
-          return NextResponse.json(
-            { success: false, message: 'This account uses Google sign-in. Continue with Google to access it.' },
-            { status: 401 }
-          );
-        }
-
-        if (user.emailVerified === false) {
-          return NextResponse.json(
-            { success: false, message: 'Please verify your email before signing in.' },
-            { status: 403 }
-          );
-        }
-
-        // Verify password with bcrypt
-        const isPasswordValid = await comparePassword(password, user.password ?? '');
-        if (isPasswordValid) {
-          logger.info(`User logged in: ${user.email} (${user.role})`);
-          queueEmail(
-            () => sendLoginNotificationEmail({ to: user.email, name: user.name }),
-            'Login notification'
-          );
-
-          const token = signToken({
-            userId: user._id.toString(),
-            email: user.email,
-            name: user.name,
-            role: user.role,
-          });
-
-          const response = NextResponse.json({
-            success: true,
-            message: 'Logged in successfully',
-            user: {
-              id: user._id.toString(),
-              name: user.name,
-              email: user.email,
-              role: user.role,
-            },
-          });
-
-          response.cookies.set({
-            ...AUTH_COOKIE_OPTIONS,
-            value: token,
-          });
-
-          return response;
-        }
-      }
-    } catch (dbError) {
-      logger.warn(`Database connection during login failed; attempting fallback demo auth: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password || password.length > 72) {
+      return NextResponse.json(
+        { success: false, message: 'A valid email address and password are required.' },
+        { status: 400 }
+      );
     }
 
-    // Check demo fallback users
-    const fallback = getFallbackUser(normalizedEmail, password);
-    if (fallback) {
-      logger.info(`Demo fallback user logged in: ${fallback.email} (${fallback.role})`);
-      const token = signToken({
-        userId: fallback.id,
-        email: fallback.email,
-        name: fallback.name,
-        role: fallback.role,
-      });
-
-      const response = NextResponse.json({
-        success: true,
-        message: 'Logged in successfully (Demo Session)',
-        user: fallback,
-      });
-
-      response.cookies.set({
-        ...AUTH_COOKIE_OPTIONS,
-        value: token,
-      });
-
-      return response;
+    const ip = getClientIp(request);
+    const ipLimit = await consumeRateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000);
+    const accountLimit = await consumeRateLimit(`login-account:${email}`, 10, 15 * 60 * 1000);
+    if (!ipLimit.allowed || !accountLimit.allowed) {
+      const retries = [
+        ipLimit.allowed ? 0 : ipLimit.retryAfterSeconds,
+        accountLimit.allowed ? 0 : accountLimit.retryAfterSeconds,
+      ];
+      return limitedResponse(Math.max(...retries));
     }
 
-    return NextResponse.json(
-      { success: false, message: 'Invalid email or password' },
-      { status: 401 }
+    await connectToDatabase();
+    const user = await User.findOne({ email }).select('+password');
+    const passwordMatches =
+      Boolean(user?.password) && (await comparePassword(password, user?.password || ''));
+
+    if (!user || !user.password || !passwordMatches || user.emailVerified === false) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid email or password.' },
+        { status: 401 }
+      );
+    }
+
+    await resetRateLimit(`login-account:${email}`);
+    await resetRateLimit(`login-ip:${ip}`);
+    const session = await createAuthSession({
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    });
+
+    queueEmail(
+      () => sendLoginNotificationEmail({ to: user.email, name: user.name }),
+      'Login notification'
     );
+
+    const response = NextResponse.json({
+      success: true,
+      message: 'Logged in successfully.',
+      sessionExpiresAt: session.expiresAt.toISOString(),
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+    response.cookies.set({
+      ...authCookieOptions(session.expiresAt),
+      value: session.token,
+    });
+    return response;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Login error: ${errorMessage}`);
+    logger.error(`Login request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(
       { success: false, message: 'Unable to log in right now. Please try again later.' },
       { status: 500 }

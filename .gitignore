@@ -46,3 +46,4 @@ logs/
 # Environment secrets in all project folders
 **/.env
 **/.env.*
+!backend/.env.example

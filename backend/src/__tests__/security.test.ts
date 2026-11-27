@@ -4,6 +4,7 @@ import { createOtp, createResetToken, sha256 } from '@/lib/cryptoTokens';
 import { getSafeInternalPath } from '@/lib/safePath';
 import { isAllowedEbookHost, getEbookDownloadUrl, getEbookReadUrl } from '@/lib/ebookFormats';
 import { bookDetailsHref, parseBookSource, inferBookSource } from '@/lib/bookRoutes';
+import { consumeRateLimit, resetRateLimit } from '@/lib/rateLimit';
 
 describe('Security & Auth Validation Suite', () => {
   it('enforces password policy rules', () => {
@@ -11,6 +12,18 @@ describe('Security & Auth Validation Suite', () => {
     expect(validatePassword('alllettersnodigit')).not.toBeNull();
     expect(validatePassword('1234567890')).not.toBeNull();
     expect(validatePassword('ValidPass123')).toBeNull();
+  });
+
+  it('blocks requests after the configured rate limit and permits them after reset', async () => {
+    const key = `security-test:${Date.now()}:${Math.random()}`;
+    expect((await consumeRateLimit(key, 2, 60_000)).allowed).toBe(true);
+    expect((await consumeRateLimit(key, 2, 60_000)).allowed).toBe(true);
+    const blocked = await consumeRateLimit(key, 2, 60_000);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+
+    await resetRateLimit(key);
+    expect((await consumeRateLimit(key, 2, 60_000)).allowed).toBe(true);
   });
 
   it('generates secure 6-digit OTP and reset tokens', () => {

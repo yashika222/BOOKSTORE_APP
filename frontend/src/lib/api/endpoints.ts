@@ -11,11 +11,10 @@ export const API_ENDPOINTS = {
     login: '/api/auth/login',
     logout: '/api/auth/logout',
     me: '/api/auth/me',
+    extendSession: '/api/auth/extend-session',
     google: '/api/auth/google',
     forgotPassword: '/api/auth/forgot-password',
-    verifyResetOtp: '/api/auth/verify-reset-otp',
-    resetPassword: '/api/auth/reset-password',
-    resendResetPassword: '/api/auth/reset-password/resend',
+    resetLink: '/api/auth/reset-link',
   },
   books: {
     list: '/api/books',

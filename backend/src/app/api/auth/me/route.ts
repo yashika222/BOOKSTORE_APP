@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         role: user.role,
       },
+      sessionExpiresAt: new Date(user.exp * 1000).toISOString(),
     });
   } catch (error) {
     logger.error(`Auth session lookup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

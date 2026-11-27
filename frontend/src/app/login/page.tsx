@@ -27,6 +27,10 @@ function LoginForm() {
     const googleError = searchParams.get('error');
     if (googleError && GOOGLE_ERRORS[googleError]) {
       setErrorMessage(GOOGLE_ERRORS[googleError]);
+      return;
+    }
+    if (searchParams.get('reason') === 'session-expired') {
+      setErrorMessage('Your session expired. Please sign in again.');
     }
   }, [searchParams]);
 
@@ -39,7 +43,7 @@ function LoginForm() {
         password: values.password,
       });
       if (res?.success && res?.user) {
-        dispatch(setCredentials({ user: res.user }));
+        dispatch(setCredentials({ user: res.user, sessionExpiresAt: res.sessionExpiresAt }));
         setSessionHint(res.user);
         message.success(`Welcome back, ${res.user.name}!`);
         const requestedPath = nextPath;

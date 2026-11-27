@@ -6,8 +6,11 @@ import { Alert, Button, Checkbox, Form, Input, message, Radio } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import type { IAddress } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { setCredentials } from '@/store/authSlice';
+import { logout, setCredentials } from '@/store/authSlice';
 import { accountService, addressesService } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { broadcastAuthTabEvent } from '@/lib/api/authEvents';
+import { clearSessionHint } from '@/lib/api';
 
 interface AddressFormValues {  fullName: string;
   mobile: string;
@@ -100,7 +103,8 @@ function AddressDetails({ address }: { address: IAddress }) {
 
 export default function AccountPage() {
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => state.auth.user);
+  const { user, sessionExpiresAt } = useAppSelector((state) => state.auth);
+  const router = useRouter();
 
   const [profileForm] = Form.useForm<{ name: string }>();
   const [passwordForm] = Form.useForm();
@@ -178,7 +182,7 @@ export default function AccountPage() {
         throw new Error(data?.message || 'Failed to update profile.');
       }
 
-      dispatch(setCredentials({ user: data.user }));
+      dispatch(setCredentials({ user: data.user, sessionExpiresAt }));
       setEditingProfile(false);
       setProfileSuccess('Profile name updated successfully.');
       message.success('Profile updated.');
@@ -202,6 +206,7 @@ export default function AccountPage() {
       const data = await accountService.changePassword({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
+        confirmPassword: values.confirmPassword,
       });
       if (!data?.success) {
         throw new Error(data?.message || 'Failed to change password.');
@@ -211,6 +216,10 @@ export default function AccountPage() {
       passwordForm.resetFields();
       setEditingPassword(false);
       message.success('Password changed.');
+      dispatch(logout());
+      clearSessionHint();
+      broadcastAuthTabEvent({ type: 'expired' });
+      router.replace('/login?reason=session-expired');
     } catch (error: unknown) {
       setPasswordError(getErrorMessage(error, 'Error changing password.'));
     } finally {
@@ -527,7 +536,7 @@ export default function AccountPage() {
                   label="New Password"
                   rules={[
                     { required: true, message: 'Enter a new password.' },
-                    { min: 8, message: 'Password must be at least 8 characters.' },
+                    { min: 8, max: 72, message: 'Password must be between 8 and 72 characters.' },
                     {
                       pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
                       message: 'Include at least one letter and one number.',

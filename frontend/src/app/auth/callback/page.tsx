@@ -22,7 +22,12 @@ function AuthCallbackContent() {
       .then((response) => {
         if (!active) return;
         if (response.success && response.user) {
-          dispatch(setCredentials({ user: response.user }));
+          dispatch(
+            setCredentials({
+              user: response.user,
+              sessionExpiresAt: response.sessionExpiresAt,
+            })
+          );
           setSessionHint(response.user);
           router.replace(nextPath);
           return;

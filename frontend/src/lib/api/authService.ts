@@ -35,6 +35,13 @@ export const authService = {
     return data;
   },
 
+  async extendSession(): Promise<{ success: boolean; sessionExpiresAt?: string; message?: string }> {
+    const { data } = await api.post<{ success: boolean; sessionExpiresAt?: string; message?: string }>(
+      API_ENDPOINTS.auth.extendSession
+    );
+    return data;
+  },
+
   async logout(): Promise<ApiEnvelope> {
     const { data } = await api.post<ApiEnvelope>(API_ENDPOINTS.auth.logout);
     return data;
@@ -42,26 +49,6 @@ export const authService = {
 
   async forgotPassword(email: string): Promise<ApiEnvelope> {
     const { data } = await api.post<ApiEnvelope>(API_ENDPOINTS.auth.forgotPassword, { email });
-    return data;
-  },
-
-  async verifyResetOtp(payload: { email: string; otp: string }): Promise<ApiEnvelope> {
-    const { data } = await api.post<ApiEnvelope>(API_ENDPOINTS.auth.verifyResetOtp, payload);
-    return data;
-  },
-
-  async resetPassword(payload: {
-    newPassword: string;
-    confirmPassword: string;
-  }): Promise<ApiEnvelope> {
-    const { data } = await api.post<ApiEnvelope>(API_ENDPOINTS.auth.resetPassword, payload);
-    return data;
-  },
-
-  async resendResetPassword(email: string): Promise<ApiEnvelope> {
-    const { data } = await api.post<ApiEnvelope>(API_ENDPOINTS.auth.resendResetPassword, {
-      email,
-    });
     return data;
   },
 

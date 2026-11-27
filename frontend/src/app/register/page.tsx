@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Alert, Button, Input, Spin, message } from 'antd';
 import { useAppDispatch } from '@/store/hooks';
 import { setCredentials } from '@/store/authSlice';
@@ -18,8 +19,11 @@ function RegisterForm() {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
 
-  const finishAuthenticated = (user: { id: string; name: string; email: string; role: 'customer' | 'admin' }) => {
-    dispatch(setCredentials({ user }));
+  const finishAuthenticated = (
+    user: { id: string; name: string; email: string; role: 'customer' | 'admin' },
+    sessionExpiresAt?: string
+  ) => {
+    dispatch(setCredentials({ user, sessionExpiresAt }));
     setSessionHint(user);
     message.success('Account created successfully.');
     const safePath =
@@ -48,7 +52,7 @@ function RegisterForm() {
         return;
       }
       if (res?.success && res?.user) {
-        finishAuthenticated(res.user);
+        finishAuthenticated(res.user, res.sessionExpiresAt);
         return;
       }
       throw new Error(res?.message || 'Registration failed');
@@ -66,7 +70,7 @@ function RegisterForm() {
     try {
       const res = await authService.verifyOtp({ email: pendingEmail, otp });
       if (res?.success && res?.user) {
-        finishAuthenticated(res.user);
+        finishAuthenticated(res.user, res.sessionExpiresAt);
         return;
       }
       throw new Error(res?.message || 'Verification failed');
@@ -84,7 +88,8 @@ function RegisterForm() {
           <div className="space-y-4">
             {errorMessage ? <Alert type="error" message={errorMessage} showIcon /> : null}
             <p className="text-sm text-[#0a0102]">
-              We sent a 6-digit code to <strong>{pendingEmail}</strong>.
+              If eligible, a 6-digit code was sent to <strong>{pendingEmail}</strong>. Already have an account?{' '}
+              <Link href="/login" className="font-semibold text-[#a03037]">Sign in</Link>.
             </p>
             <Input
               value={otp}

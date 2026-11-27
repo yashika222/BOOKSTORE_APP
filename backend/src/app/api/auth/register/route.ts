@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const limit = consumeRateLimit(`register:${normalizedEmail}`, 5, 15 * 60 * 1000);
+    const limit = await consumeRateLimit(`register:${normalizedEmail}`, 5, 15 * 60 * 1000);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, message: `Too many registration attempts. Try again in ${limit.retryAfterSeconds} seconds.` },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
       );
     }
 
@@ -68,10 +68,12 @@ export async function POST(request: NextRequest) {
 
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, message: 'An account with this email address already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({
+        success: true,
+        requiresOtp: true,
+        email: normalizedEmail,
+        message: 'If eligible, follow the verification instructions sent to finish registration.',
+      });
     }
 
     const otp = createOtp();
@@ -93,30 +95,15 @@ export async function POST(request: NextRequest) {
 
     try {
       await sendVerificationOtpEmail({ to: normalizedEmail, name: name.trim(), otp });
-    } catch (mailError) {
-      logger.error(
-        `Registration OTP email failed for ${normalizedEmail}: ${
-          mailError instanceof Error ? mailError.message : 'Unknown error'
-        }`
-      );
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            mailError instanceof Error
-              ? mailError.message
-              : 'Unable to send the verification email. Check SMTP configuration.',
-        },
-        { status: 503 }
-      );
+    } catch {
+      logger.error('Registration verification email delivery failed.');
     }
-    logger.info(`Registration OTP emailed for ${normalizedEmail}`);
 
     return NextResponse.json({
       success: true,
       requiresOtp: true,
       email: normalizedEmail,
-      message: 'Enter the verification code sent to your email to finish creating your account.',
+      message: 'If eligible, follow the verification instructions sent to finish registration.',
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

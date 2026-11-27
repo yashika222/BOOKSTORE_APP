@@ -26,12 +26,14 @@ export interface AuthResponse extends ApiEnvelope {
   user?: AuthUser;
   requiresOtp?: boolean;
   email?: string;
+  sessionExpiresAt?: string;
 }
 
 export interface MeResponse {
   success: boolean;
   user: AuthUser | null;
   message?: string;
+  sessionExpiresAt?: string;
 }
 
 export interface BookListParams {
@@ -126,6 +128,7 @@ export interface UpdateProfilePayload {
 export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
+  confirmPassword: string;
 }
 
 export type AddressPayload = Omit<IAddress, '_id'>;

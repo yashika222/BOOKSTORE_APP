@@ -1,8 +1,29 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
+import Session from '@/models/Session';
 import User from '@/models/User';
+
+function accessTokenTtlSeconds(): number {
+  const configured = process.env.JWT_EXPIRES_IN || '15m';
+  const match = /^(\d+)(s|m|h|d)$/.exec(configured.trim());
+  if (!match) return 15 * 60;
+  const multiplier: Record<string, number> = {
+    s: 1,
+    m: 60,
+    h: 60 * 60,
+    d: 24 * 60 * 60,
+  };
+  const seconds = Number(match[1]) * multiplier[match[2]];
+  return Number.isSafeInteger(seconds) && seconds >= 5 * 60 && seconds <= 60 * 60
+    ? seconds
+    : 15 * 60;
+}
+
+const ACCESS_TOKEN_TTL_SECONDS = accessTokenTtlSeconds();
+const ABSOLUTE_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -17,101 +38,210 @@ export interface TokenPayload {
   email: string;
   name: string;
   role: 'customer' | 'admin';
+  jti: string;
+  iat: number;
+  exp: number;
 }
 
-/**
- * Hash plain text password using bcrypt
- */
+export interface SessionUser {
+  userId: string;
+  email: string;
+  name: string;
+  role: 'customer' | 'admin';
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(password, salt);
 }
 
-/**
- * Compare plain text password against bcrypt hashed password
- */
 export async function comparePassword(password: string, hashed: string): Promise<boolean> {
   return bcrypt.compare(password, hashed);
 }
 
-/**
- * Sign JWT token for authenticated user session
- */
-export function signToken(payload: TokenPayload, expiresIn: jwt.SignOptions['expiresIn'] = '7d'): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn } as jwt.SignOptions);
+export function signToken(
+  payload: SessionUser,
+  sessionId: string,
+  expiresInSeconds = ACCESS_TOKEN_TTL_SECONDS
+): string {
+  return jwt.sign(payload, getJwtSecret(), {
+    algorithm: 'HS256',
+    expiresIn: expiresInSeconds,
+    jwtid: sessionId,
+  });
 }
 
-/**
- * Verify JWT token string and return decoded payload or null
- */
-export function verifyToken(token: string): TokenPayload | null {
+function verifySignedToken(token: string, allowExpired = false): TokenPayload | null {
   try {
-    return jwt.verify(token, getJwtSecret()) as TokenPayload;
+    const decoded = jwt.verify(token, getJwtSecret(), {
+      algorithms: ['HS256'],
+      ignoreExpiration: allowExpired,
+    });
+    if (
+      typeof decoded === 'string' ||
+      typeof decoded.jti !== 'string' ||
+      typeof decoded.iat !== 'number' ||
+      typeof decoded.exp !== 'number' ||
+      typeof decoded.userId !== 'string' ||
+      typeof decoded.email !== 'string' ||
+      typeof decoded.name !== 'string' ||
+      (decoded.role !== 'customer' && decoded.role !== 'admin')
+    ) {
+      return null;
+    }
+    return decoded as TokenPayload;
   } catch {
     return null;
   }
 }
 
-/**
- * Extract authenticated user session from incoming NextRequest
- * Looks for HTTP-only cookie 'bookstore_token' first, then 'Authorization: Bearer' header
- */
-export function getUserFromRequest(request: NextRequest): TokenPayload | null {
-  // 1. Try reading HTTP-only cookie
-  const cookieToken = request.cookies.get('bookstore_token')?.value;
-  if (cookieToken) {
-    const verified = verifyToken(cookieToken);
-    if (verified) return verified;
-  }
+export function getSignedTokenFromRequest(
+  request: NextRequest,
+  allowExpired = false
+): TokenPayload | null {
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  return token ? verifySignedToken(token, allowExpired) : null;
+}
 
-  // 2. Try reading Authorization header
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const headerToken = authHeader.substring(7);
-    return verifyToken(headerToken);
-  }
+export async function createAuthSession(user: SessionUser): Promise<{
+  token: string;
+  expiresAt: Date;
+}> {
+  await connectToDatabase();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000);
+  const absoluteExpiresAt = new Date(now.getTime() + ABSOLUTE_SESSION_TTL_SECONDS * 1000);
+  const sessionId = crypto.randomUUID();
+  const account = await User.findById(user.userId).select('+passwordChangedAt');
+  if (!account) throw new Error('Cannot create a session for an unknown account.');
 
-  return null;
+  await Session.create({
+    userId: user.userId,
+    jti: sessionId,
+    expiresAt,
+    absoluteExpiresAt,
+    passwordVersion: account.passwordChangedAt || null,
+  });
+
+  return {
+    token: signToken(user, sessionId),
+    expiresAt,
+  };
+}
+
+export async function extendAuthSession(
+  payload: TokenPayload
+): Promise<{ token: string; expiresAt: Date } | null> {
+  await connectToDatabase();
+  const now = new Date();
+  const session = await Session.findOne({
+    jti: payload.jti,
+    userId: payload.userId,
+    revokedAt: null,
+    expiresAt: { $gt: now },
+    absoluteExpiresAt: { $gt: now },
+  });
+  if (!session) return null;
+
+  const expiresAt = new Date(
+    Math.min(
+      now.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000,
+      session.absoluteExpiresAt.getTime()
+    )
+  );
+  const updated = await Session.findOneAndUpdate(
+    {
+      _id: session._id,
+      revokedAt: null,
+      expiresAt: { $gt: now },
+    },
+    { $set: { revokedAt: now } },
+    { new: true }
+  );
+  if (!updated) return null;
+
+  const newSessionId = crypto.randomUUID();
+  await Session.create({
+    userId: updated.userId,
+    jti: newSessionId,
+    expiresAt,
+    absoluteExpiresAt: updated.absoluteExpiresAt,
+    passwordVersion: updated.passwordVersion,
+  });
+
+  return {
+    token: signToken(
+      {
+        userId: payload.userId,
+        email: payload.email,
+        name: payload.name,
+        role: payload.role,
+      },
+      newSessionId,
+      Math.max(1, Math.floor((expiresAt.getTime() - now.getTime()) / 1000))
+    ),
+    expiresAt,
+  };
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await connectToDatabase();
+  await Session.updateOne(
+    { jti: sessionId, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
+}
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  await connectToDatabase();
+  await Session.updateMany(
+    { userId, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
 }
 
 export async function getCurrentUserFromRequest(
   request: NextRequest
 ): Promise<TokenPayload | null> {
-  const session = getUserFromRequest(request);
+  const session = getSignedTokenFromRequest(request);
   if (!session) return null;
 
-  try {
-    await connectToDatabase();
-    const user = await User.findById(session.userId).select('_id email name role');
-    if (!user) {
-      // Return verified JWT session in fallback/demo mode
-      return session;
-    }
+  await connectToDatabase();
+  const [activeSession, user] = await Promise.all([
+    Session.findOne({
+      jti: session.jti,
+      userId: session.userId,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+    }).select('_id passwordVersion'),
+    User.findById(session.userId).select('_id email name role passwordChangedAt'),
+  ]);
+  if (!activeSession || !user) return null;
 
-    return {
-      userId: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
-  } catch {
-    // If DB is offline, return verified JWT session
-    return session;
+  const activeVersion = activeSession.passwordVersion?.getTime() || 0;
+  const currentVersion = user.passwordChangedAt?.getTime() || 0;
+  if (activeVersion !== currentVersion) {
+    await Session.updateOne(
+      { jti: session.jti, revokedAt: null },
+      { $set: { revokedAt: new Date() } }
+    );
+    return null;
   }
+
+  return {
+    userId: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    jti: session.jti,
+    iat: session.iat,
+    exp: session.exp,
+  };
 }
 
-/**
- * Cookie options for setting secure HTTP-only cookies
- */
 export const AUTH_COOKIE_NAME = 'bookstore_token';
-
 const isProduction = process.env.NODE_ENV === 'production';
 
-/**
- * Cross-site cookies (frontend and backend on different origins) must use
- * SameSite=None + Secure in production. Localhost ports are same-site, so Lax
- * keeps local development simple while still requiring credentialed CORS.
- */
 export function crossSiteCookieOptions(maxAge: number) {
   return {
     httpOnly: true,
@@ -122,7 +252,11 @@ export function crossSiteCookieOptions(maxAge: number) {
   };
 }
 
-export const AUTH_COOKIE_OPTIONS = {
-  name: AUTH_COOKIE_NAME,
-  ...crossSiteCookieOptions(60 * 60 * 24 * 7), // 7 days in seconds
-};
+export function authCookieOptions(expiresAt: Date) {
+  return {
+    name: AUTH_COOKIE_NAME,
+    ...crossSiteCookieOptions(
+      Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    ),
+  };
+}

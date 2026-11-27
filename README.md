@@ -51,8 +51,11 @@ BookStore/
 
 ## Sessions and cross-origin auth
 
-- The backend sets the real `bookstore_token` JWT in an HTTP-only cookie. In production it uses `SameSite=None; Secure`; in local development (`localhost:3000` → `localhost:3001`) it uses `SameSite=Lax`.
-- The frontend Axios instance sends `withCredentials: true`. Backend CORS echoes `FRONTEND_URL` and enables `Access-Control-Allow-Credentials`.
+- The backend sets a 15-minute JWT in the HTTP-only `bookstore_token` cookie and persists its session in MongoDB. Authenticated requests check the signature, session ID, expiry/revocation state, and password version. Sessions can be continued up to a 7-day absolute limit; extension rotates the session ID. Logout, password changes, and password resets revoke server-side sessions.
+- Production uses `SameSite=None; Secure`; local development (`localhost:3000` to `localhost:3001`) uses `SameSite=Lax`.
+- The frontend Axios instance sends `withCredentials: true`. Backend CORS echoes `FRONTEND_URL`, enables `Access-Control-Allow-Credentials`, and rejects state-changing requests from unconfigured browser origins.
+- The UI warns two minutes before the API session expires and synchronizes continuation, expiration, and logout events across tabs without broadcasting credentials.
+- Password reset uses single-use SHA-256-hashed email-link tokens and an expiry configured with `PASSWORD_RESET_LINK_TTL_MINUTES`. The reset flow does not use OTP verification.
 - `frontend/src/middleware.ts` reads only non-sensitive `bookstore_session` and `bookstore_role` hint cookies for page redirects. Every API request is still authorized by the backend, so these hints are never trusted for data access.
 - Google OAuth starts at `backend/api/auth/google`, uses a backend state cookie, and redirects back to `frontend/auth/callback`. That page calls `/api/auth/me`, establishes the Redux session and hint cookies, then continues to the requested page.
 
@@ -84,8 +87,9 @@ BACKEND_URL=http://localhost:3001
 Optional backend services:
 
 ```env
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=15m
 AUTH_SECRET=<at-least-32-character-random-secret>
+PASSWORD_RESET_LINK_TTL_MINUTES=15
 EMAIL_PROVIDER=smtp
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -123,11 +127,6 @@ cd frontend && npm run dev
 
 Open <http://localhost:3000>. Backend health check: <http://localhost:3001/api/health>. API docs: <http://localhost:3000/docs>.
 
-Demo fallback accounts (used when no database user is found):
-
-- Admin: `admin@bookstore.com` / `Admin@123456`
-- Customer: `reader@bookstore.com` / `Reader@123456`
-
 ### 4. Scripts
 
 Run from either application directory:
@@ -152,6 +151,8 @@ npm run email:verify
 ## Deployment
 
 Deploy `backend/` and `frontend/` as separate Next.js projects (for example, two Vercel projects). Set the backend environment variables in the backend project and only `NEXT_PUBLIC_*` variables in the frontend project. Set `FRONTEND_URL` on the backend to the deployed frontend origin and set `NEXT_PUBLIC_API_URL` on the frontend to the deployed backend origin. Both projects must be HTTPS in production for the cross-site cookie to be accepted.
+
+The built-in rate-limit store is process-local and does not provide protection across multiple backend instances or restarts. The current defaults allow 10 login attempts per account and 30 per IP per 15 minutes, plus 5 password-reset requests per IP and 3 per account per hour. `backend/src/lib/rateLimit.ts` exposes a `RateLimitStore` interface and `configureRateLimitStore` hook; configure a shared Redis-backed adapter before deploying multiple instances. Do not treat the default in-memory store as distributed protection.
 
 ## API surface
 

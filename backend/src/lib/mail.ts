@@ -11,7 +11,10 @@ function normalizeEnv(value: string | undefined): string | undefined {
 }
 
 function isResendConfigured(): boolean {
-  return Boolean(normalizeEnv(process.env.EMAIL_API_KEY) && normalizeEnv(process.env.EMAIL_FROM));
+  return Boolean(
+    (normalizeEnv(process.env.EMAIL_API_KEY) || normalizeEnv(process.env.RESEND_API_KEY)) &&
+      normalizeEnv(process.env.EMAIL_FROM)
+  );
 }
 
 export function getSmtpConfig() {
@@ -76,7 +79,8 @@ export async function verifySmtpConnection(): Promise<void> {
 }
 
 async function sendViaResend(options: { to: string; subject: string; html: string; text: string }) {
-  const apiKey = normalizeEnv(process.env.EMAIL_API_KEY);
+  const apiKey =
+    normalizeEnv(process.env.EMAIL_API_KEY) || normalizeEnv(process.env.RESEND_API_KEY);
   const senderAddress = normalizeEnv(process.env.EMAIL_FROM) || fromAddress();
 
   if (!apiKey || !senderAddress) {
@@ -205,6 +209,31 @@ export async function sendPasswordResetEmail(options: {
     logger.error(`Password reset email failed to send: ${message}`);
     throw new Error('Unable to send the password reset email.');
   }
+}
+
+export async function sendPasswordResetLinkEmail(options: {
+  to: string;
+  resetUrl: string;
+  expiryMinutes: number;
+}): Promise<void> {
+  await sendMail({
+    to: options.to,
+    subject: 'Reset your BookStore password',
+    text: [
+      'We received a request to reset your BookStore password.',
+      '',
+      `Use this one-time link within ${options.expiryMinutes} minutes:`,
+      options.resetUrl,
+      '',
+      'If you did not request a reset, you can ignore this email.',
+    ].join('\n'),
+    html: wrapHtml(
+      'Reset your password',
+      `<p>Use the link below within ${options.expiryMinutes} minutes to choose a new password:</p>
+       <p><a href="${options.resetUrl}" style="display:inline-block;padding:12px 20px;background:#7d1d29;color:#fff;text-decoration:none;border-radius:6px;">Reset password</a></p>
+       <p>If you did not request a password reset, you can safely ignore this email.</p>`
+    ),
+  });
 }
 
 export async function sendPasswordResetConfirmationEmail(options: { to: string; name: string }): Promise<void> {

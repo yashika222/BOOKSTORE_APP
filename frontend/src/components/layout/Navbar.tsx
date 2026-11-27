@@ -23,6 +23,9 @@ import { useThemeMode } from '@/lib/theme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout } from '@/store/authSlice';
 import { authService, clearSessionHint } from '@/lib/api';
+import { setCartItems } from '@/store/cartSlice';
+import { setWishlistItems } from '@/store/wishlistSlice';
+import { broadcastAuthTabEvent } from '@/lib/api/authEvents';
 
 export default function Navbar() {
   const router = useRouter();
@@ -58,11 +61,22 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await authService.logout();
+      dispatch(setCartItems([]));
+      dispatch(setWishlistItems([]));
       dispatch(logout());
       clearSessionHint();
       sessionStorage.removeItem('bookstore_guest_mode');
+      try {
+        if (user?.id) {
+          localStorage.removeItem(`bookstore_cart_v2_${user.id}`);
+          localStorage.removeItem(`bookstore_wishlist_v2_${user.id}`);
+        }
+      } catch {
+        // Redux state is cleared even when browser storage is unavailable.
+      }
+      broadcastAuthTabEvent({ type: 'logout' });
       message.success('Logged out successfully');
-      router.push('/');
+      router.replace('/login?reason=logout');
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'Unable to log out. Please try again.');
     }

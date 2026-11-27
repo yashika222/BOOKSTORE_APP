@@ -15,12 +15,20 @@ function corsHeaders(origin: string): Record<string, string> {
 export function middleware(request: NextRequest) {
   const origin = request.headers.get('origin') || '';
   const allowed = origin ? getAllowedOrigins().includes(origin) : false;
+  const isStateChanging = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
 
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 204,
       headers: allowed ? corsHeaders(origin) : { Vary: 'Origin' },
     });
+  }
+
+  if (isStateChanging && origin && !allowed) {
+    return NextResponse.json(
+      { success: false, message: 'This origin is not allowed to perform this request.' },
+      { status: 403, headers: { Vary: 'Origin' } }
+    );
   }
 
   const response = NextResponse.next();

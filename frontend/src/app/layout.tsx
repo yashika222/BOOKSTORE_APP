@@ -4,6 +4,7 @@ import AntdRegistryWrapper from '@/components/layout/AntdRegistryWrapper';
 import StoreProvider from '@/store/StoreProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import AuthSessionManager from '@/components/auth/AuthSessionManager';
 import { THEME_BOOTSTRAP_SCRIPT } from '@/lib/themeScript';
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <AntdRegistryWrapper>
           <StoreProvider>
+            <AuthSessionManager />
             <div className="flex min-h-screen flex-col">
               <Navbar />
               <main className="flex flex-1 flex-col">{children}</main>

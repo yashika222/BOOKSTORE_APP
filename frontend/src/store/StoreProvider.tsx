@@ -157,7 +157,12 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
             );
           }
           setSessionHint(response.user);
-          store.dispatch(setCredentials({ user: response.user }));
+          store.dispatch(
+            setCredentials({
+              user: response.user,
+              sessionExpiresAt: response.sessionExpiresAt,
+            })
+          );
         } else {
           clearSessionHint();
           const currentCart = store.getState().cart.items;

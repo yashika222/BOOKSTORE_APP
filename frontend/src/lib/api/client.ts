@@ -44,6 +44,14 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (
+      typeof window !== 'undefined' &&
+      error.response?.status === 401 &&
+      !String(error.config?.url || '').includes('/api/auth/')
+    ) {
+      window.dispatchEvent(new Event('bookstore:session-expired'));
+    }
+
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||

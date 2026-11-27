@@ -2,26 +2,25 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Form, Input, Button, Alert, message } from 'antd';
+import { Form, Input, Button, Alert } from 'antd';
 import { BookOutlined } from '@ant-design/icons';
 import { authService } from '@/lib/api';
 import styles from './ForgotPassword.module.css';
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   const onFinish = async (values: { email: string }) => {
     setLoading(true);
     setErrorMessage(null);
+    setRequestSubmitted(false);
     try {
       const res = await authService.forgotPassword(values.email);
       if (res?.success) {
-        message.success('If your email is registered, a one-time code has been sent.');
-        router.push(`/reset-password?email=${encodeURIComponent(values.email.trim().toLowerCase())}`);
+        setRequestSubmitted(true);
       } else {
         setErrorMessage(res?.message || 'Unable to send reset email.');
       }
@@ -53,6 +52,15 @@ export default function ForgotPasswordPage() {
               </p>
               {errorMessage ? (
                 <Alert type="error" message={errorMessage} className={styles.errorAlert} showIcon />
+              ) : null}
+              {requestSubmitted ? (
+                <Alert
+                  type="success"
+                  showIcon
+                  message="Check your email for a password reset link."
+                  description="If this address is registered, we sent a link. Check your spam folder too. The link expires in 15 minutes."
+                  className={styles.errorAlert}
+                />
               ) : null}
               <Form
                 form={form}

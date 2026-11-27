@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import { createOtp, sha256 } from '@/lib/cryptoTokens';
-import { isSmtpConfigured, sendPasswordResetEmail } from '@/lib/mail';
-import { consumeRateLimit } from '@/lib/rateLimit';
+import { createResetToken, sha256 } from '@/lib/cryptoTokens';
+import { isEmailConfigured, sendPasswordResetLinkEmail } from '@/lib/mail';
+import { frontendUrl } from '@/lib/appUrls';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import logger from '@/lib/logger';
 
 const GENERIC_SUCCESS = {
   success: true,
-  message: 'If that email is registered, we have sent password reset instructions.',
+  message: 'If this email is registered, you will receive password reset instructions.',
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: 'Please enter a valid email address.' },
+        { status: 400 }
+      );
+    }
+    const email =
+      body && typeof body === 'object' && !Array.isArray(body) &&
+      typeof (body as Record<string, unknown>).email === 'string'
+        ? ((body as Record<string, unknown>).email as string).toLowerCase().trim()
+        : '';
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
@@ -23,73 +36,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const limited = consumeRateLimit(`forgot:${ip}:${email}`, 3, 60 * 60 * 1000);
+    const ip = getClientIp(request);
+    const limited = await consumeRateLimit(`forgot-ip:${ip}`, 5, 60 * 60 * 1000);
     if (!limited.allowed) {
       return NextResponse.json(
         {
           success: false,
-          message: `Please wait ${limited.retryAfterSeconds} seconds before requesting another reset.`,
+          message: `Too many reset requests. Please try again in ${limited.retryAfterSeconds} seconds.`,
         },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limited.retryAfterSeconds) } }
       );
     }
 
-    if (!isSmtpConfigured()) {
+    if (!isEmailConfigured()) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            'Password reset email is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM.',
-        },
+        { success: false, message: 'Password reset email is not available right now.' },
         { status: 503 }
       );
     }
 
     await connectToDatabase();
-    const user = await User.findOne({ email }).select(
-      '+passwordResetOtpHash +passwordResetOtpExpires +passwordResetOtpLastSentAt'
-    );
+    const user = await User.findOne({ email }).select('+passwordResetLastSentAt');
     if (!user) {
       return NextResponse.json(GENERIC_SUCCESS);
     }
 
+    const accountLimit = await consumeRateLimit(`forgot-account:${email}`, 3, 60 * 60 * 1000);
+    const resendWaitMs = 60 * 1000;
     if (
-      user.passwordResetOtpLastSentAt &&
-      Date.now() - user.passwordResetOtpLastSentAt.getTime() < 60 * 1000
+      !accountLimit.allowed ||
+      (user.passwordResetLastSentAt &&
+        Date.now() - user.passwordResetLastSentAt.getTime() < resendWaitMs)
     ) {
-      return NextResponse.json(
-        { success: false, message: 'Please wait 60 seconds before requesting another code.' },
-        { status: 429 }
-      );
+      return NextResponse.json(GENERIC_SUCCESS);
     }
 
-    const otp = createOtp();
-    user.passwordResetOtpHash = sha256(otp);
-    user.passwordResetOtpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    const resetToken = createResetToken();
+    const expiryMinutesValue = Number(process.env.PASSWORD_RESET_LINK_TTL_MINUTES || '15');
+    const expiryMinutes =
+      Number.isInteger(expiryMinutesValue) && expiryMinutesValue >= 5 && expiryMinutesValue <= 60
+        ? expiryMinutesValue
+        : 15;
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+    user.passwordResetTokenHash = sha256(resetToken);
+    user.passwordResetExpires = expiresAt;
+    user.passwordResetLastSentAt = new Date();
+    user.passwordResetOtpHash = undefined;
+    user.passwordResetOtpExpires = undefined;
     user.passwordResetOtpAttempts = 0;
-    user.passwordResetOtpLastSentAt = new Date();
-    user.passwordResetTokenHash = undefined;
-    user.passwordResetExpires = undefined;
+    user.passwordResetOtpLastSentAt = undefined;
     user.passwordResetSessionHash = undefined;
     user.passwordResetSessionExpires = undefined;
     await user.save();
-
     try {
-      await sendPasswordResetEmail({ to: user.email, otp });
-    } catch (mailError) {
-      user.passwordResetOtpHash = undefined;
-      user.passwordResetOtpExpires = undefined;
-      user.passwordResetOtpAttempts = 0;
+      await sendPasswordResetLinkEmail({
+        to: user.email,
+        resetUrl: frontendUrl(`/reset-password?token=${encodeURIComponent(resetToken)}`),
+        expiryMinutes,
+      });
+    } catch (error) {
+      user.passwordResetTokenHash = undefined;
+      user.passwordResetExpires = undefined;
+      user.passwordResetLastSentAt = undefined;
       await user.save();
-      throw mailError;
+      const code =
+        error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+          ? error.code
+          : 'unknown';
+      logger.error(`Password reset link delivery failed (mail error code: ${code}).`);
+      return NextResponse.json(
+        { success: false, message: 'We could not send the reset link right now. Please try again later.' },
+        { status: 503 }
+      );
     }
-    logger.info('Password reset OTP email sent for a registered account.');
-
-    return NextResponse.json({
-      success: true,
-      message: 'If that email is registered, a password reset code has been sent.',
-    });
+    return NextResponse.json(GENERIC_SUCCESS);
   } catch (error) {
     logger.error(`Forgot-password request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return NextResponse.json(

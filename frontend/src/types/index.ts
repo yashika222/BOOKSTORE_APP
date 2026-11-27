@@ -164,4 +164,5 @@ export interface AuthState {
   isAuthenticated: boolean;
   isGuest: boolean;
   loading: boolean;
+  sessionExpiresAt: string | null;
 }
