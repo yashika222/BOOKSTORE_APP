@@ -41,8 +41,8 @@ describe('frontend URL configuration', () => {
     expect(getAllowedOrigins()).toEqual(['https://bookstore-app-8m39.vercel.app']);
   });
 
-  it('does not let a stale localhost setting override the deployed production origin', () => {
-    process.env.FRONTEND_URL = 'http://localhost:3000';
+  it('allows only the deployed origin in production despite other configured origins', () => {
+    process.env.FRONTEND_URL = 'http://localhost:3000,https://unrelated.example.com';
     vi.stubEnv('NODE_ENV', 'production');
 
     expect(getFrontendUrl()).toBe('https://bookstore-app-8m39.vercel.app');
@@ -69,5 +69,20 @@ describe('frontend URL configuration', () => {
       'https://bookstore-app-8m39.vercel.app'
     );
     expect(response.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+  });
+
+  it('does not allow state-changing requests from other production origins', () => {
+    delete process.env.FRONTEND_URL;
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const response = middleware(
+      new NextRequest('https://bookstore-app-drab.vercel.app/api/auth/login', {
+        method: 'POST',
+        headers: { Origin: 'https://unrelated.example.com' },
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });

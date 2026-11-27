@@ -1,5 +1,8 @@
 'use server';
 
+import { API_BASE_URL } from '@/lib/api/config';
+import { API_ENDPOINTS } from '@/lib/api/endpoints';
+
 interface ResetActionInput {
   token: string;
   password: string;
@@ -14,9 +17,8 @@ interface ResetActionResult {
 export async function resetPasswordAction(
   input: ResetActionInput
 ): Promise<ResetActionResult> {
-  const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
   try {
-    const response = await fetch(`${apiUrl}/api/auth/reset-link`, {
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.auth.resetLink}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),

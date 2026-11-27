@@ -1,0 +1,121 @@
+{
+  "planHash": "91b8d2053ad7cce5bd973e9a3cfad9ffc202597f9a7b0a2cca3a916a4e59babb",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-11-27T16:28:32.3521770Z",
+  "retryCount": 0,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 0,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "frontend-type-check",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-frontend@1.0.0 type-check\r\n\u003E tsc --noEmit\r\n\r\n",
+        "durationMs": 4870
+      },
+      {
+        "name": "frontend-tests",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-frontend@1.0.0 test\r\n\u003E vitest run\r\n\r\n\u001B[33mThe CJS build of Vite\u0027s Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001B[39m\r\n\r\n\u001B[7m\u001B[1m\u001B[36m RUN \u001B[39m\u001B[22m\u001B[27m \u001B[36mv1.6.1\u001B[39m \u001B[90mC:/Users/hp/Downloads/BookStore/frontend\u001B[39m\r\n\r\n \u001B[32m\u2713\u001B[39m src/__tests__/bookRoutes.test.ts \u001B[2m (\u001B[22m\u001B[2m2 tests\u001B[22m\u001B[2m)\u001B[22m\u001B[90m 4\u001B[2mms\u001B[22m\u001B[39m\r\n\r\n\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[32m1 passed\u001B[39m\u001B[22m\u001B[90m (1)\u001B[39m\r\n\u001B[2m      Tests \u001B[22m \u001B[1m\u001B[32m2 passed\u001B[39m\u001B[22m\u001B[90m (2)\u001B[39m\r\n\u001B[2m   Start at \u001B[22m 21:57:39\r\n\u001B[2m   Duration \u001B[22m 2.21s\u001B[2m (transform 98ms, setup 0ms, collect 63ms, tests 4ms, environment 0ms, prepare 525ms)\u001B[22m\r\n\r\n",
+        "durationMs": 4359,
+        "testResults": {
+          "testFramework": "vitest",
+          "runnerDetectedFrom": "package_json",
+          "testsTotal": 2,
+          "testsPassed": 2,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": false
+        }
+      },
+      {
+        "name": "frontend-production-build",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-frontend@1.0.0 build\r\n\u003E next build\r\n\r\n  \u25B2 Next.js 14.2.15\r\n  - Environments: .env.local\r\n\r\n   Creating an optimized production build ...\r\n \u2713 Compiled successfully\r\n   Linting and checking validity of types ...\r\n   Collecting page data ...\r\n   Generating static pages (0/18) ...\r\n   Generating static pages (4/18) \r\n   Generating static pages (8/18) \r\n   Generating static pages (13/18) \r\n \u2713 Generating static pages (18/18)\r\n   Finalizing page optimization ...\r\n   Collecting build traces ...\r\n\r\nRoute (app)                              Size     First Load JS\r\n\u250C \u25CB /                                    280 B           246 kB\r\n\u251C \u25CB /_not-found                          880 B          88.2 kB\r\n\u251C \u25CB /account                             9.56 kB         269 kB\r\n\u251C \u25CB /admin                               68.4 kB         418 kB\r\n\u251C \u25CB /auth/callback                       3.08 kB         153 kB\r\n\u251C \u25CB /books                               280 B           246 kB\r\n\u251C \u0192 /books/[id]                          7.05 kB         275 kB\r\n\u251C \u25CB /cart                                9.71 kB         290 kB\r\n\u251C \u25CB /checkout                            19 kB           277 kB\r\n\u251C \u25CB /docs                                18 kB           271 kB\r\n\u251C \u25CB /forgot-password                     6.29 kB         237 kB\r\n\u251C \u25CB /home                                10.3 kB         308 kB\r\n\u251C \u25CB /login                               1.06 kB         268 kB\r\n\u251C \u0192 /order-success/[orderId]             6.51 kB         174 kB\r\n\u251C \u25CB /orders                              12.1 kB         181 kB\r\n\u251C \u25CB /register                            1.38 kB         269 kB\r\n\u251C \u0192 /reset-password                      7.08 kB         260 kB\r\n\u2514 \u25CB /wishlist                            8.77 kB         229 kB\r\n\u002B First Load JS shared by all            87.4 kB\r\n  \u251C chunks/2117-a0aaca7f27a85c1a.js      31.8 kB\r\n  \u251C chunks/fd9d1056-98fd3fc47705d6e9.js  53.6 kB\r\n  \u2514 other shared chunks (total)          1.97 kB\r\n\r\n\r\n\u0192 Middleware                             26.8 kB\r\n\r\n\u25CB  (Static)   prerendered as static content\r\n\u0192  (Dynamic)  server-rendered on demand\r\n\r\n",
+        "durationMs": 48757
+      },
+      {
+        "name": "login-page-serves",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n\u003C!DOCTYPE html\u003E\u003Chtml lang=\u0022en\u0022\u003E\u003Chead\u003E\u003Cmeta charSet=\u0022utf-8\u0022/\u003E\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022/\u003E\u003Clink rel=\u0022stylesheet\u0022 href=\u0022/_next/static/css/d19288e314dbb67d.css\u0022 data-precedence=\u0022next\u0022/\u003E\u003Clink rel=\u0022stylesheet\u0022 href=\u0022/_next/static/css/9453009c1a5d508e.css\u0022 data-precedence=\u0022next\u0022/\u003E\u003Clink rel=\u0022preload\u0022 as=\u0022script\u0022 fetchPriority=\u0022low\u0022 href=\u0022/_next/static/chunks/webpack-bd16c3b087c9bb69.js\u0022/\u003E\u003Cscript src=\u0022/_next/static/chunks/fd9d1056-98fd3fc47705d6e9.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/2117-a0aaca7f27a85c1a.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/main-app-ed9bec2bd5c300c9.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/1836-2bb70fc1dfe986ea.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/6626-97e0269fa80db412.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/6667-5a230eaf83d3511f.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/7648-c3264d3da8d20b27.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/7472-672d83575dd69699.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/9981-9d0d8a64ab46e75d.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/8575-ca952ceef87a99c7.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/4766-64bf198242b09d1e.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/9816-c569ad60b89bd4a9.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/1455-26a9ae60b0a14fdd.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/4618-53cd1103a9076030.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/353-24cb7cddbd4775fb.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/6049-d5b8dd85ac50801f.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/4072-d0c2d4e4966944a7.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/2914-e018129124601a82.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/app/login/page-e318749527501e7d.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/953-9bfba8f22c0339c7.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/7287-8c1335101607e3ab.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/3248-eef939df55298cb7.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/3367-a02968188f361674.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/4953-57bbe1fa6fb296e2.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/8819-ad4ab6a9bd1220ec.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/7634-7f1958f04bbdc78c.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/9221-a259f614bb6ef47f.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/7585-18bb530787359825.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/9533-66df647530f07d5b.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/app/layout-07b63e9c4c58af1b.js\u0022 async=\u0022\u0022\u003E\u003C/script\u003E\u003Ctitle\u003EBookstore | Discover, Read \u0026amp; Order Books\u003C/title\u003E\u003Cmeta name=\u0022description\u0022 content=\u0022Browse public-domain and storefront titles, manage your cart, and place cash-on-delivery orders.\u0022/\u003E\u003Cscript\u003E(function(){try{var p=localStorage.getItem(\u0027bookstore_theme\u0027);var dark=p===\u0027dark\u0027||(p!==\u0027light\u0027\u0026\u0026window.matchMedia(\u0027(prefers-color-scheme: dark)\u0027).matches);if(dark){document.documentElement.classList.add(\u0027dark\u0027);document.documentElement.setAttribute(\u0027data-theme\u0027,\u0027dark\u0027);}}catch(e){}})();\u003C/script\u003E\u003Cscript src=\u0022/_next/static/chunks/polyfills-42372ed130431b0a.js\u0022 noModule=\u0022\u0022\u003E\u003C/script\u003E\u003C/head\u003E\u003Cbody class=\u0022min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]\u0022\u003E\u003Cdiv class=\u0022css-6a265h ant-app\u0022\u003E\u003Cdiv class=\u0022flex min-h-screen flex-col\u0022\u003E\u003Cmain class=\u0022flex flex-1 flex-col\u0022\u003E\u003C!--$!--\u003E\u003Ctemplate data-dgst=\u0022BAILOUT_TO_CLIENT_SIDE_RENDERING\u0022\u003E\u003C/template\u003E\u003Cdiv class=\u0022flex justify-center py-24\u0022\u003E\u003Cdiv class=\u0022ant-spin ant-spin-lg ant-spin-spinning css-6a265h\u0022 aria-live=\u0022polite\u0022 aria-busy=\u0022true\u0022\u003E\u003Cspan class=\u0022ant-spin-dot-holder\u0022\u003E\u003Cspan class=\u0022ant-spin-dot ant-spin-dot-spin\u0022\u003E\u003Ci class=\u0022ant-spin-dot-item\u0022\u003E\u003C/i\u003E\u003Ci class=\u0022ant-spin-dot-item\u0022\u003E\u003C/i\u003E\u003Ci class=\u0022ant-spin-dot-item\u0022\u003E\u003C/i\u003E\u003Ci class=\u0022ant-spin-dot-item\u0022\u003E\u003C/i\u003E\u003C/span\u003E\u003C/span\u003E\u003C/div\u003E\u003C/div\u003E\u003C!--/$--\u003E\u003C/main\u003E\u003C/div\u003E\u003C/div\u003E\u003Cscript src=\u0022/_next/static/chunks/web\n\u2026[truncated]",
+        "durationMs": 2096
+      }
+    ],
+    "executions": [
+      {
+        "source": "frontend-type-check",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "type-check"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\frontend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "frontend-tests",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "test"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\frontend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "frontend-production-build",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "build"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\frontend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "login-page-serves",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "start"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\frontend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

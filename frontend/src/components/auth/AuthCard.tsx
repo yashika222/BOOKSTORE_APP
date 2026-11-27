@@ -73,12 +73,18 @@ export default function AuthCard({
 
           {mode === 'login' ? (
             <Form form={form} layout="vertical" requiredMark={false} onFinish={onLogin} className={styles.form}>
-              <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
+              <Form.Item
+                name="email"
+                label="Email Id"
+                htmlFor="login-email"
+                rules={[{ required: true, type: 'email' }]}
+              >
                 <Input id="login-email" name="email" autoComplete="email" />
               </Form.Item>
               <Form.Item
                 name="password"
                 label="Password"
+                htmlFor="login-password"
                 rules={[{ required: true, message: 'Enter password' }]}
               >
                 <Input.Password
@@ -113,15 +119,26 @@ export default function AuthCard({
               onFinish={onRegister}
               className={`${styles.form} ${styles.signupForm}`}
             >
-              <Form.Item name="name" label="Full Name" rules={[{ required: true, message: 'Enter full name' }]}>
+              <Form.Item
+                name="name"
+                label="Full Name"
+                htmlFor="signup-name"
+                rules={[{ required: true, message: 'Enter full name' }]}
+              >
                 <Input id="signup-name" name="name" autoComplete="name" />
               </Form.Item>
-              <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
+              <Form.Item
+                name="email"
+                label="Email Id"
+                htmlFor="signup-email"
+                rules={[{ required: true, type: 'email' }]}
+              >
                 <Input id="signup-email" name="email" autoComplete="email" />
               </Form.Item>
               <Form.Item
                 name="password"
                 label="Password"
+                htmlFor="signup-password"
                 rules={[
                   { required: true, message: 'Enter a password.' },
                   { min: 8, max: 72, message: 'Password must be between 8 and 72 characters.' },
@@ -137,7 +154,7 @@ export default function AuthCard({
                   autoComplete="new-password"
                 />
               </Form.Item>
-              <Form.Item name="mobile" label="Mobile Number">
+              <Form.Item name="mobile" label="Mobile Number" htmlFor="signup-mobile">
                 <Input id="signup-mobile" name="mobile" autoComplete="tel" inputMode="tel" />
               </Form.Item>
               <Button type="primary" htmlType="submit" block loading={loading} className={styles.submitButton}>

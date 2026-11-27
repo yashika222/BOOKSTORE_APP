@@ -1,0 +1,121 @@
+{
+  "planHash": "0035aa5dfb23ab85f84ce740ab73cc5bf208879dd8a795b8cef296f958a6748a",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-11-27T16:27:28.7859789Z",
+  "retryCount": 0,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 0,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "backend-type-check",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-backend@1.0.0 type-check\r\n\u003E tsc --noEmit\r\n\r\n",
+        "durationMs": 2679
+      },
+      {
+        "name": "backend-tests",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-backend@1.0.0 test\r\n\u003E vitest run\r\n\r\n\u001B[33mThe CJS build of Vite\u0027s Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001B[39m\r\n\r\n\u001B[7m\u001B[1m\u001B[36m RUN \u001B[39m\u001B[22m\u001B[27m \u001B[36mv1.6.1\u001B[39m \u001B[90mC:/Users/hp/Downloads/BookStore/backend\u001B[39m\r\n\r\n \u001B[32m\u2713\u001B[39m src/__tests__/catalog.test.ts \u001B[2m (\u001B[22m\u001B[2m2 tests\u001B[22m\u001B[2m)\u001B[22m\u001B[90m 5\u001B[2mms\u001B[22m\u001B[39m\r\n \u001B[32m\u2713\u001B[39m src/__tests__/security.test.ts \u001B[2m (\u001B[22m\u001B[2m7 tests\u001B[22m\u001B[2m)\u001B[22m\u001B[90m 14\u001B[2mms\u001B[22m\u001B[39m\r\n \u001B[32m\u2713\u001B[39m src/__tests__/appUrls.test.ts \u001B[2m (\u001B[22m\u001B[2m6 tests\u001B[22m\u001B[2m)\u001B[22m\u001B[90m 29\u001B[2mms\u001B[22m\u001B[39m\r\n\r\n\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[32m3 passed\u001B[39m\u001B[22m\u001B[90m (3)\u001B[39m\r\n\u001B[2m      Tests \u001B[22m \u001B[1m\u001B[32m15 passed\u001B[39m\u001B[22m\u001B[90m (15)\u001B[39m\r\n\u001B[2m   Start at \u001B[22m 21:56:44\r\n\u001B[2m   Duration \u001B[22m 1.75s\u001B[2m (transform 295ms, setup 0ms, collect 573ms, tests 48ms, environment 2ms, prepare 1.87s)\u001B[22m\r\n\r\n",
+        "durationMs": 3964,
+        "testResults": {
+          "testFramework": "vitest",
+          "runnerDetectedFrom": "package_json",
+          "testsTotal": 15,
+          "testsPassed": 15,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": false
+        }
+      },
+      {
+        "name": "backend-production-build",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E fundoo-books-backend@1.0.0 build\r\n\u003E next build\r\n\r\n  \u25B2 Next.js 14.2.15\r\n  - Environments: .env.local\r\n\r\n   Creating an optimized production build ...\r\n \u2713 Compiled successfully\r\n   Linting and checking validity of types ...\r\n   Collecting page data ...\r\n   Generating static pages (0/15) ...\r\n   Generating static pages (3/15) \r\n   Generating static pages (7/15) \r\n   Generating static pages (11/15) \r\n \u2713 Generating static pages (15/15)\r\n   Finalizing page optimization ...\r\n   Collecting build traces ...\r\n\r\nRoute (app)                              Size     First Load JS\r\n\u250C \u0192 /                                    142 B          87.2 kB\r\n\u251C \u25CB /_not-found                          873 B          87.9 kB\r\n\u251C \u0192 /api/account                         0 B                0 B\r\n\u251C \u0192 /api/account/recent                  0 B                0 B\r\n\u251C \u0192 /api/addresses                       0 B                0 B\r\n\u251C \u0192 /api/addresses/[id]                  0 B                0 B\r\n\u251C \u0192 /api/auth/extend-session             0 B                0 B\r\n\u251C \u0192 /api/auth/forgot-password            0 B                0 B\r\n\u251C \u0192 /api/auth/google                     0 B                0 B\r\n\u251C \u0192 /api/auth/google/callback            0 B                0 B\r\n\u251C \u0192 /api/auth/login                      0 B                0 B\r\n\u251C \u0192 /api/auth/logout                     0 B                0 B\r\n\u251C \u0192 /api/auth/me                         0 B                0 B\r\n\u251C \u0192 /api/auth/register                   0 B                0 B\r\n\u251C \u0192 /api/auth/resend-otp                 0 B                0 B\r\n\u251C \u0192 /api/auth/reset-link                 0 B                0 B\r\n\u251C \u0192 /api/auth/reset-password/resend      0 B                0 B\r\n\u251C \u0192 /api/auth/verify-otp                 0 B                0 B\r\n\u251C \u0192 /api/books                           0 B                0 B\r\n\u251C \u0192 /api/books/[id]                      0 B                0 B\r\n\u251C \u0192 /api/books/isbn/[isbn]               0 B                0 B\r\n\u251C \u0192 /api/books/related                   0 B                0 B\r\n\u251C \u0192 /api/cart                            0 B                0 B\r\n\u251C \u0192 /api/cart/[itemId]                   0 B                0 B\r\n\u251C \u0192 /api/covers                          0 B                0 B\r\n\u251C \u0192 /api/ebooks/download                 0 B                0 B\r\n\u251C \u0192 /api/gutendex                        0 B                0 B\r\n\u251C \u0192 /api/health                          0 B                0 B\r\n\u251C \u0192 /api/orders                          0 B                0 B\r\n\u251C \u0192 /api/orders/[id]                     0 B                0 B\r\n\u251C \u0192 /api/wishlist                        0 B                0 B\r\n\u2514 \u0192 /api/wishlist/[bookId]               0 B                0 B\r\n\u002B First Load JS shared by all            87.1 kB\r\n  \u251C chunks/117-9d7f1cd31c438fde.js       31.6 kB\r\n  \u251C chunks/fd9d1056-aa94ea5c2eabf904.js  53.6 kB\r\n  \u2514 other shared chunks (total)          1.84 kB\r\n\r\n\r\n\u0192 Middleware                             26.9 kB\r\n\r\n\u25CB  (Static)   prerendered as static content\r\n\u0192  (Dynamic)  server-rendered on demand\r\n\r\n",
+        "durationMs": 39845
+      },
+      {
+        "name": "backend-health-endpoint",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n{\u0022success\u0022:true,\u0022service\u0022:\u0022fundoo-books-backend\u0022,\u0022timestamp\u0022:\u00222026-11-27T16:27:28.649Z\u0022}\n--- server output ---\n\r\n\u003E fundoo-books-backend@1.0.0 start\r\n\u003E next start -p 3001\r\n\r\n  \u25B2 Next.js 14.2.15\r\n  - Local:        http://localhost:3001\r\n\r\n \u2713 Starting...\r\n \u2713 Ready in 1072ms\r\n",
+        "durationMs": 2254
+      }
+    ],
+    "executions": [
+      {
+        "source": "backend-type-check",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "type-check"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\backend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "backend-tests",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "test"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\backend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "backend-production-build",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "build"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\backend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "backend-health-endpoint",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "start"
+        ],
+        "cwd": "C:\\Users\\hp\\Downloads\\BookStore\\backend",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}
