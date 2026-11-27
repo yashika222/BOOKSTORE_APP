@@ -41,6 +41,14 @@ describe('frontend URL configuration', () => {
     expect(getAllowedOrigins()).toEqual(['https://bookstore-app-8m39.vercel.app']);
   });
 
+  it('does not let a stale localhost setting override the deployed production origin', () => {
+    process.env.FRONTEND_URL = 'http://localhost:3000';
+    vi.stubEnv('NODE_ENV', 'production');
+
+    expect(getFrontendUrl()).toBe('https://bookstore-app-8m39.vercel.app');
+    expect(getAllowedOrigins()).toEqual(['https://bookstore-app-8m39.vercel.app']);
+  });
+
   it('returns CORS headers for the deployed frontend preflight in production', () => {
     delete process.env.FRONTEND_URL;
     vi.stubEnv('NODE_ENV', 'production');

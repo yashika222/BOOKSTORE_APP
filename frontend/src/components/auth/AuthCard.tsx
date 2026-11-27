@@ -74,7 +74,7 @@ export default function AuthCard({
           {mode === 'login' ? (
             <Form form={form} layout="vertical" requiredMark={false} onFinish={onLogin} className={styles.form}>
               <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
-                <Input autoComplete="email" />
+                <Input id="login-email" name="email" autoComplete="email" />
               </Form.Item>
               <Form.Item
                 name="password"
@@ -82,6 +82,8 @@ export default function AuthCard({
                 rules={[{ required: true, message: 'Enter password' }]}
               >
                 <Input.Password
+                  id="login-password"
+                  name="password"
                   autoComplete="current-password"
                   iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                 />
@@ -112,10 +114,10 @@ export default function AuthCard({
               className={`${styles.form} ${styles.signupForm}`}
             >
               <Form.Item name="name" label="Full Name" rules={[{ required: true, message: 'Enter full name' }]}>
-                <Input autoComplete="name" />
+                <Input id="signup-name" name="name" autoComplete="name" />
               </Form.Item>
               <Form.Item name="email" label="Email Id" rules={[{ required: true, type: 'email' }]}>
-                <Input autoComplete="email" />
+                <Input id="signup-email" name="email" autoComplete="email" />
               </Form.Item>
               <Form.Item
                 name="password"
@@ -129,10 +131,14 @@ export default function AuthCard({
                   },
                 ]}
               >
-                <Input.Password autoComplete="new-password" />
+                <Input.Password
+                  id="signup-password"
+                  name="password"
+                  autoComplete="new-password"
+                />
               </Form.Item>
               <Form.Item name="mobile" label="Mobile Number">
-                <Input autoComplete="tel" inputMode="tel" />
+                <Input id="signup-mobile" name="mobile" autoComplete="tel" inputMode="tel" />
               </Form.Item>
               <Button type="primary" htmlType="submit" block loading={loading} className={styles.submitButton}>
                 Signup
